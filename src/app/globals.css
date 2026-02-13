@@ -107,9 +107,9 @@ canvas {
   -webkit-backdrop-filter: blur(24px);
 }
 
-/* Safe area padding for notched/dynamic island devices */
+/* Safe area padding for notched/dynamic island devices + iOS Safari bottom bar */
 .safe-bottom {
-  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 0.5rem));
 }
 
 .safe-top {
