@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" style={{ backgroundColor: '#0A0A0A' }}>
       <head>
         {/* iOS Safari fullscreen + status bar */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -46,7 +46,7 @@ export default function RootLayout({
         <link rel="prefetch" href="/models/source/oakley.glb" crossOrigin="anonymous" />
         <link rel="prefetch" href="/models/source/aviator.glb" crossOrigin="anonymous" />
       </head>
-      <body className={`${geistSans.variable} antialiased`}>
+      <body className={`${geistSans.variable} antialiased`} style={{ backgroundColor: '#0A0A0A', minHeight: '100vh' }}>
         {children}
       </body>
     </html>
