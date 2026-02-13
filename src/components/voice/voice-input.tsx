@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAppStore } from '@/store/app-store';
 import { useSpeech } from './use-speech';
 import { routeFromTranscript } from '@/lib/keyword-router';
@@ -250,7 +250,6 @@ export default function VoiceInput() {
   const {
     isListening,
     isSupported,
-    interimTranscript,
     startListening,
     stopListening,
   } = useSpeech({
@@ -311,30 +310,10 @@ export default function VoiceInput() {
   };
 
   // ── Conversation mode: hold-to-talk mic button ──────────────────────
+  // Transcript is displayed by viewer-hub's orb overlay — not here, to avoid duplication.
   if (isConversing) {
     return (
       <div className="flex flex-col items-center gap-3">
-        {/* Real-time user transcription — prominent display */}
-        <AnimatePresence>
-          {(interimTranscript || isListening) && (
-            <motion.div
-              className="w-full max-w-xs text-center px-4"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              transition={{ duration: 0.2 }}
-            >
-              {interimTranscript ? (
-                <p className="text-foreground/70 text-base leading-relaxed">
-                  {interimTranscript}
-                </p>
-              ) : isListening ? (
-                <p className="text-foreground/30 text-sm">Listening...</p>
-              ) : null}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Hold-to-talk mic button */}
         {isSupported && (
           <motion.button

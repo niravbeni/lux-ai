@@ -24,16 +24,6 @@ interface SpeechRecognitionEvent extends Event {
   resultIndex: number;
 }
 
-// ── Platform detection ─────────────────────────────────────────────────
-function isIOSSafari(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent;
-  const isIOS =
-    /iPad|iPhone|iPod/.test(ua) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  return isIOS;
-}
-
 // Max recording duration in ms — auto-stops to prevent runaway recordings
 const MAX_RECORD_MS = 20_000;
 
@@ -327,6 +317,10 @@ function useWebSpeech({
 
     recognition.onstart = () => setIsListening(true);
 
+    // Track the latest interim text so we can deliver it if recognition ends
+    // without a final result (common on iOS Safari)
+    let latestInterim = '';
+
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let finalSoFar = '';
       let interim = '';
@@ -342,6 +336,7 @@ function useWebSpeech({
       }
 
       accumulatedRef.current = finalSoFar;
+      latestInterim = interim;
 
       // Show the full text so far (final + interim) as the live transcription
       const liveText = (finalSoFar + ' ' + interim).trim();
@@ -351,16 +346,28 @@ function useWebSpeech({
       }
     };
 
-    recognition.onerror = () => {
-      // Don't clear listening state on 'no-speech' — let the user keep holding
+    recognition.onerror = (event: Event) => {
+      const errorEvent = event as Event & { error?: string };
+      // Critical errors — give up
+      if (errorEvent.error === 'not-allowed' || errorEvent.error === 'service-not-allowed') {
+        setIsListening(false);
+        recognitionRef.current = null;
+        return;
+      }
+      // Benign errors (no-speech, audio-capture) — keep going, let user keep holding
     };
 
     recognition.onend = () => {
       setIsListening(false);
 
       // When recognition ends (user released button → stop() called),
-      // deliver the accumulated transcript
-      const finalText = accumulatedRef.current.trim();
+      // deliver the accumulated transcript. If no final results were received
+      // but we have interim text (common on short iOS sessions), use that.
+      let finalText = accumulatedRef.current.trim();
+      if (!finalText && latestInterim) {
+        finalText = latestInterim.trim();
+      }
+
       if (finalText) {
         setTranscript(finalText);
         setInterimTranscript('');
@@ -417,12 +424,13 @@ function useWebSpeech({
 
 // ── Public hook: auto-selects the right engine ─────────────────────────
 export function useSpeech(options: UseSpeechOptions = {}): UseSpeechReturn {
-  const needsFallback = isIOSSafari();
-
   // Both hooks called unconditionally (Rules of Hooks)
   const whisper = useWhisperFallback(options.onResult, options.onInterim);
   const webSpeech = useWebSpeech(options);
 
-  if (needsFallback) return whisper;
-  return webSpeech;
+  // Prefer Web Speech API — it provides real-time transcription.
+  // Modern iOS Safari (14.5+) supports webkitSpeechRecognition.
+  // Only fall back to Whisper when Web Speech API is truly unavailable.
+  if (webSpeech.isSupported) return webSpeech;
+  return whisper;
 }

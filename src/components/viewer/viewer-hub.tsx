@@ -317,9 +317,13 @@ export default function ViewerHub() {
                     exit={{ opacity: 0, y: -5 }}
                     transition={{ duration: 0.25 }}
                   >
-                    <p className="text-foreground/50 text-sm leading-relaxed text-center italic">
-                      {transcript || (isListening ? 'Listening...' : '')}
-                    </p>
+                    {transcript ? (
+                      <p className="text-foreground/70 text-sm leading-relaxed text-center italic">
+                        {transcript}
+                      </p>
+                    ) : isListening ? (
+                      <p className="text-foreground/30 text-xs text-center">Listening...</p>
+                    ) : null}
                   </motion.div>
                 )}
               </AnimatePresence>
