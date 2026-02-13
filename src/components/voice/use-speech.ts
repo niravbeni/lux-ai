@@ -432,7 +432,10 @@ function useWebSpeech({
   };
 }
 
-// ── Public hook: auto-selects the right engine ─────────────────────────
+// ── Public hook: smart engine selection with auto-fallback ─────────────
+// On non-iOS: always Web Speech API (real-time transcription).
+// On iOS: tries Web Speech API first. If it doesn't fire `onstart` within
+// 1.5 s, it auto-falls back to Whisper and remembers for future calls.
 export function useSpeech(options: UseSpeechOptions = {}): UseSpeechReturn {
   const isIOS = isIOSSafari();
 
@@ -440,10 +443,105 @@ export function useSpeech(options: UseSpeechOptions = {}): UseSpeechReturn {
   const whisper = useWhisperFallback(options.onResult, options.onInterim);
   const webSpeech = useWebSpeech(options);
 
-  // iOS Safari: webkitSpeechRecognition exists but is unreliable,
-  // so we use the Whisper (MediaRecorder → server transcription) path.
-  // All other platforms: use Web Speech API for real-time transcription.
-  if (isIOS && whisper.isSupported) return whisper;
-  if (webSpeech.isSupported) return webSpeech;
-  return whisper;
+  // ── Engine tracking refs (no re-render, survive across calls) ───────
+  // 'web' = known good, 'whisper' = known fallback, 'undecided' = first iOS attempt
+  const engineRef = useRef<'web' | 'whisper' | 'undecided'>(
+    isIOS ? 'undecided' : 'web',
+  );
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const webListeningRef = useRef(false);
+
+  // Keep a ref in sync with webSpeech.isListening so the timeout closure
+  // reads the live value instead of a stale snapshot.
+  useEffect(() => {
+    webListeningRef.current = webSpeech.isListening;
+  }, [webSpeech.isListening]);
+
+  // If Web Speech successfully fires onstart on iOS, lock in 'web' engine
+  useEffect(() => {
+    if (isIOS && webSpeech.isListening && engineRef.current === 'undecided') {
+      engineRef.current = 'web';
+      if (fallbackTimerRef.current) {
+        clearTimeout(fallbackTimerRef.current);
+        fallbackTimerRef.current = null;
+      }
+    }
+  }, [isIOS, webSpeech.isListening]);
+
+  // ── Unified startListening ──────────────────────────────────────────
+  const startListening = useCallback(() => {
+    // Clear any pending fallback
+    if (fallbackTimerRef.current) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
+
+    const engine = engineRef.current;
+
+    // Known-good Web Speech (desktop or iOS that already passed the test)
+    if (engine === 'web') {
+      webSpeech.startListening();
+      return;
+    }
+
+    // Known Whisper device (iOS where Web Speech already failed)
+    if (engine === 'whisper') {
+      whisper.startListening();
+      return;
+    }
+
+    // ── 'undecided' (first iOS attempt) ──────────────────────────────
+    if (webSpeech.isSupported) {
+      webSpeech.startListening();
+
+      // Give Web Speech 1.5 s to fire onstart; if not, fall back
+      fallbackTimerRef.current = setTimeout(() => {
+        fallbackTimerRef.current = null;
+        if (!webListeningRef.current) {
+          engineRef.current = 'whisper';
+          webSpeech.stopListening();
+          whisper.startListening();
+        }
+      }, 1500);
+    } else {
+      engineRef.current = 'whisper';
+      whisper.startListening();
+    }
+  }, [webSpeech.startListening, webSpeech.stopListening, webSpeech.isSupported, whisper.startListening]);
+
+  // ── Unified stopListening ───────────────────────────────────────────
+  const stopListening = useCallback(() => {
+    if (fallbackTimerRef.current) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
+    // Stop both — each is safe to call even when not active
+    webSpeech.stopListening();
+    whisper.stopListening();
+  }, [webSpeech.stopListening, whisper.stopListening]);
+
+  // ── Unified resetTranscript ─────────────────────────────────────────
+  const resetTranscript = useCallback(() => {
+    webSpeech.resetTranscript();
+    whisper.resetTranscript();
+  }, [webSpeech.resetTranscript, whisper.resetTranscript]);
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+    };
+  }, []);
+
+  // Merge state — only one engine is active at a time, so `||` picks
+  // whichever has content (the inactive engine has empty strings).
+  return {
+    isListening: webSpeech.isListening || whisper.isListening,
+    isSupported: webSpeech.isSupported || whisper.isSupported,
+    transcript: webSpeech.transcript || whisper.transcript,
+    interimTranscript: webSpeech.interimTranscript || whisper.interimTranscript,
+    startListening,
+    stopListening,
+    resetTranscript,
+  };
 }
