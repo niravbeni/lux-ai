@@ -64,7 +64,7 @@ export default function AppShell() {
   }, [activeProductId]);
 
   return (
-    <div className="relative w-screen overflow-hidden bg-background" style={{ height: '100dvh' }}>
+    <div className="relative w-screen h-full overflow-hidden bg-background">
       <AnimatePresence mode="wait">
         {screen === 'landing' && <LandingScreen key="landing" />}
         {screen === 'scanner' && <ScannerScreen key="scanner" />}

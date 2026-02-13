@@ -46,7 +46,7 @@ export default function RootLayout({
         <link rel="prefetch" href="/models/source/oakley.glb" crossOrigin="anonymous" />
         <link rel="prefetch" href="/models/source/aviator.glb" crossOrigin="anonymous" />
       </head>
-      <body className={`${geistSans.variable} antialiased`} style={{ backgroundColor: '#0A0A0A', minHeight: '100vh' }}>
+      <body className={`${geistSans.variable} antialiased`}>
         {children}
       </body>
     </html>
