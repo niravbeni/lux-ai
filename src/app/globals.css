@@ -39,39 +39,40 @@ input[type="submit"] {
 }
 
 html {
-  /* Prevent iOS rubber-banding / overscroll */
-  overflow: hidden;
-  /* Full screen height — 100vh extends behind iOS safe areas with viewport-fit=cover */
-  height: 100vh;
-  /* Prevent text size inflation on rotation */
+  /* Background covers entire screen including behind iOS bars */
+  background: var(--background);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  background: var(--background);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  /* Stretch behind BOTH iOS safe areas (status bar + home indicator) */
-  bottom: 0;
-  width: 100vw;
-  height: 100vh;
+  /* Use dvh for content — respects iOS Safari toolbar */
+  width: 100%;
+  height: 100dvh;
+  height: 100svh; /* small viewport = always visible area */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Prevent pull-to-refresh on mobile */
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
-  /* Prevent context menus on long press */
   -webkit-touch-callout: none;
-  /* Disable user selection globally (re-enable where needed) */
   -webkit-user-select: none;
   user-select: none;
+}
+
+@supports not (height: 100dvh) {
+  /* Fallback for older browsers */
+  body {
+    height: -webkit-fill-available;
+  }
+  html {
+    height: -webkit-fill-available;
+  }
 }
 
 #__next {
@@ -111,13 +112,13 @@ canvas {
   -webkit-backdrop-filter: blur(24px);
 }
 
-/* Safe area padding for notched/dynamic island devices + iOS Safari bottom bar */
+/* Safe area padding for notched/dynamic island devices */
 .safe-bottom {
-  padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 0.5rem));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
 .safe-top {
-  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-top: max(0.5rem, env(safe-area-inset-top));
 }
 
 /* ============================
