@@ -288,13 +288,20 @@ export default function VoiceInput() {
       stopSpeaking();
     }
 
-    // Enter conversation mode if not already
+    // If not yet in conversation mode, just enter it — DON'T start
+    // listening.  The original button is about to unmount (React re-render
+    // swaps in the conversation-mode UI), so onPointerUp would never fire
+    // and we'd be stuck listening.  The user will press-and-hold the new
+    // large mic button to start talking.
     if (!isConversing) {
       setIsConversing(true);
       setRecommendedProductId(null);
+      setStreamingText('');
+      setTranscript('');
+      return;
     }
 
-    // Clear old AI text so user transcript is prominent
+    // Already in conversation mode — start recording
     setStreamingText('');
     setTranscript('');
     startListening();

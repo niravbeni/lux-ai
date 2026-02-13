@@ -15,6 +15,10 @@ function setPlaying(active: boolean) {
 }
 
 // ── Browser speechSynthesis fallback ──────────────────────────────────
+// NOTE: Do NOT call speechSynthesis.cancel() here — the main speak()
+// function already cancels before reaching this fallback.  Calling
+// cancel() immediately before speak() silently drops the utterance on
+// Chrome and some WebKit browsers.
 function speakWithBrowser(text: string, id: number): Promise<void> {
   return new Promise<void>((resolve) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
@@ -22,8 +26,6 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
       resolve();
       return;
     }
-
-    window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.0;
