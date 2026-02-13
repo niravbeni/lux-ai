@@ -379,7 +379,7 @@ export default function ViewerHub() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.5 }}
           >
-            <p className="text-foreground/70 text-sm leading-relaxed text-center">
+            <p className="text-foreground/70 text-sm leading-relaxed text-center line-clamp-3">
               {assistantMessage}
             </p>
           </motion.div>

@@ -4,6 +4,9 @@ import { useAppStore } from '@/store/app-store';
 
 let currentAudio: HTMLAudioElement | null = null;
 let speakId = 0;
+// Resolve function for the current speak() promise — allows stopSpeaking()
+// to unblock any code awaiting speak() (e.g., sendToChat auto-exit logic).
+let pendingResolve: (() => void) | null = null;
 
 function setPlaying(active: boolean) {
   const { setIsSpeaking, setOrbState } = useAppStore.getState();
@@ -38,19 +41,21 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
     );
     if (preferred) utterance.voice = preferred;
 
-    // Set speaking ONLY when the browser actually starts vocalising
     utterance.onstart = () => {
       if (id === speakId) setPlaying(true);
     };
     utterance.onend = () => {
       if (id === speakId) setPlaying(false);
+      pendingResolve = null;
       resolve();
     };
     utterance.onerror = () => {
       if (id === speakId) setPlaying(false);
+      pendingResolve = null;
       resolve();
     };
 
+    pendingResolve = resolve;
     window.speechSynthesis.speak(utterance);
   });
 }
@@ -60,15 +65,17 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
 export async function speak(text: string): Promise<void> {
   const id = ++speakId;
 
-  // Stop any currently playing audio
+  // Stop any currently playing audio and resolve any pending promise
   if (currentAudio) {
-    currentAudio.onended = null;
-    currentAudio.onerror = null;
     currentAudio.pause();
     currentAudio = null;
   }
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel();
+  }
+  if (pendingResolve) {
+    pendingResolve();
+    pendingResolve = null;
   }
 
   if (!text?.trim()) {
@@ -77,7 +84,6 @@ export async function speak(text: string): Promise<void> {
   }
 
   try {
-    // Fetch the audio — do NOT set speaking yet (audio isn't playing)
     const response = await fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -87,7 +93,6 @@ export async function speak(text: string): Promise<void> {
     if (id !== speakId) return;
 
     if (!response.ok) {
-      // ElevenLabs failed — fall back to browser speech
       await speakWithBrowser(text, id);
       return;
     }
@@ -99,30 +104,29 @@ export async function speak(text: string): Promise<void> {
     const audio = new Audio(audioUrl);
     currentAudio = audio;
 
-    // Wait for audio to FINISH playing (not just start)
     await new Promise<void>((resolve) => {
-      audio.onended = () => {
+      const cleanup = () => {
         if (currentAudio === audio) currentAudio = null;
         if (id === speakId) setPlaying(false);
         if (audioUrl) URL.revokeObjectURL(audioUrl);
+        pendingResolve = null;
         resolve();
       };
 
-      audio.onerror = () => {
-        if (currentAudio === audio) currentAudio = null;
-        if (id === speakId) setPlaying(false);
-        if (audioUrl) URL.revokeObjectURL(audioUrl);
-        resolve();
-      };
+      audio.onended = cleanup;
+      audio.onerror = cleanup;
+
+      // Store the resolve so stopSpeaking() can unblock us
+      pendingResolve = resolve;
 
       audio.play()
         .then(() => {
-          // Audio is now ACTUALLY playing through the speaker
           if (id === speakId) setPlaying(true);
         })
         .catch(() => {
           if (currentAudio === audio) currentAudio = null;
           if (audioUrl) URL.revokeObjectURL(audioUrl);
+          pendingResolve = null;
           // Autoplay blocked — fall back to browser speech
           speakWithBrowser(text, id).then(resolve);
         });
@@ -137,13 +141,16 @@ export async function speak(text: string): Promise<void> {
 export function stopSpeaking(): void {
   speakId++;
   if (currentAudio) {
-    currentAudio.onended = null;
-    currentAudio.onerror = null;
     currentAudio.pause();
     currentAudio = null;
   }
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel();
+  }
+  // Resolve any pending speak() promise so callers (e.g., sendToChat) don't hang
+  if (pendingResolve) {
+    pendingResolve();
+    pendingResolve = null;
   }
   setPlaying(false);
 }

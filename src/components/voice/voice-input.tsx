@@ -129,7 +129,13 @@ export default function VoiceInput() {
         // speak() will set 'speaking' only when audio actually plays
         setOrbState('idle');
         triggerHaptic('light');
-        await speak(result.clean).catch(() => {});
+
+        // Run TTS and a minimum reading timer in parallel —
+        // we want the user to have at least 3 seconds to read the text
+        // even if TTS resolves instantly (e.g., audio blocked on iOS).
+        const ttsPromise = speak(result.clean).catch(() => {});
+        const minReadDelay = new Promise((r) => setTimeout(r, 3000));
+        await Promise.all([ttsPromise, minReadDelay]);
 
         // After TTS finishes: if the AI recommended a colourway (and/or frame),
         // automatically return to the product page so the user sees the result.
@@ -144,7 +150,7 @@ export default function VoiceInput() {
             setActiveColourway(result.colourId);
           }
 
-          await new Promise((r) => setTimeout(r, 600));
+          await new Promise((r) => setTimeout(r, 800));
           // Re-check — user might have exited during the delay
           if (useAppStore.getState().isConversing) {
             setIsConversing(false);
@@ -322,7 +328,7 @@ export default function VoiceInput() {
   // Transcript is displayed by viewer-hub's orb overlay — not here, to avoid duplication.
   if (isConversing) {
     return (
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-2">
         {/* Hold-to-talk mic button */}
         {isSupported && (
           <motion.button
@@ -381,6 +387,11 @@ export default function VoiceInput() {
             </svg>
           </motion.button>
         )}
+
+        {/* Hold-to-talk label */}
+        <p className="text-foreground/25 text-[10px] tracking-widest uppercase">
+          {isListening ? 'Listening…' : isSpeaking ? 'Speaking…' : 'Hold to talk'}
+        </p>
       </div>
     );
   }
