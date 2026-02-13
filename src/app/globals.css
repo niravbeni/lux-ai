@@ -1,26 +1,280 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0A0A0A;
+  --foreground: #F5F0EB;
+  --gold: #C9A96E;
+  --gold-light: #D4B97E;
+  --glass: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ============================
+   MOBILE-FIRST RESETS
+   ============================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+[role="button"],
+input[type="submit"] {
+  cursor: pointer;
+}
+
+html {
+  /* Prevent iOS rubber-banding / overscroll */
+  overflow: hidden;
+  height: 100%;
+  height: -webkit-fill-available;
+  /* Prevent text size inflation on rotation */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: -webkit-fill-available;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent pull-to-refresh on mobile */
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  /* Prevent context menus on long press */
+  -webkit-touch-callout: none;
+  /* Disable user selection globally (re-enable where needed) */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#__next {
+  width: 100%;
+  height: 100%;
+}
+
+/* Allow selection in text inputs */
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Prevent canvas from capturing iOS gestures */
+canvas {
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
+/* Hide scrollbars globally */
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  scrollbar-width: none;
+}
+
+/* ============================
+   UTILITY CLASSES
+   ============================ */
+
+/* Glass card */
+.glass-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* Safe area padding for notched/dynamic island devices */
+.safe-bottom {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+.safe-top {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+/* ============================
+   COLOUR-MORPHING BACKGROUND (orb-inspired)
+   ============================ */
+
+.colour-morph-bg {
+  background: #0e0e10;
+  overflow: visible;
+}
+
+/* Three colour blobs — orb-inspired glows on dark background */
+.colour-morph-bg::before,
+.colour-morph-bg::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+/* Teal / cyan glow — top right */
+.colour-morph-bg::before {
+  width: 70%;
+  height: 70%;
+  top: -5%;
+  right: -15%;
+  background: radial-gradient(circle, rgba(50, 200, 210, 0.35), rgba(80, 220, 235, 0.15), transparent 70%);
+  animation: morph-blob-1 8s ease-in-out infinite alternate;
+}
+
+/* Magenta / rose glow — bottom left */
+.colour-morph-bg::after {
+  width: 60%;
+  height: 60%;
+  bottom: 0%;
+  left: -10%;
+  background: radial-gradient(circle, rgba(210, 90, 150, 0.3), rgba(190, 70, 170, 0.12), transparent 70%);
+  animation: morph-blob-2 10s ease-in-out infinite alternate;
+}
+
+/* Gold / amber glow — centre */
+.colour-morph-blob-gold {
+  position: absolute;
+  width: 55%;
+  height: 55%;
+  top: 20%;
+  left: 15%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201, 169, 110, 0.3), rgba(220, 195, 130, 0.1), transparent 70%);
+  filter: blur(70px);
+  pointer-events: none;
+  animation: morph-blob-3 12s ease-in-out infinite alternate;
+}
+
+@keyframes morph-blob-1 {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+  33% { transform: translate(-12%, 8%) scale(1.15); opacity: 0.8; }
+  66% { transform: translate(5%, -6%) scale(0.9); opacity: 0.55; }
+  100% { transform: translate(-6%, 4%) scale(1.08); opacity: 0.7; }
+}
+
+@keyframes morph-blob-2 {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.55; }
+  33% { transform: translate(10%, -8%) scale(1.12); opacity: 0.75; }
+  66% { transform: translate(-6%, 6%) scale(0.92); opacity: 0.5; }
+  100% { transform: translate(4%, -3%) scale(1.05); opacity: 0.65; }
+}
+
+@keyframes morph-blob-3 {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  33% { transform: translate(8%, 12%) scale(1.1); opacity: 0.65; }
+  66% { transform: translate(-10%, -5%) scale(0.95); opacity: 0.45; }
+  100% { transform: translate(5%, 8%) scale(1.05); opacity: 0.6; }
+}
+
+/* ============================
+   ANIMATIONS
+   ============================ */
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+}
+
+.animate-fade-in-up-delay {
+  animation: fade-in-up 0.6s ease-out 0.2s forwards;
+  opacity: 0;
+}
+
+.animate-fade-in-up-delay-2 {
+  animation: fade-in-up 0.6s ease-out 0.4s forwards;
+  opacity: 0;
+}
+
+/* ============================
+   QR SCANNER: full-screen camera, hide all library UI
+   ============================ */
+
+/* Make the scanner container fill its parent */
+.qr-scanner-fullscreen {
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+/* Force the video element to fill the entire screen */
+.qr-scanner-fullscreen video {
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+/* Hide ALL html5-qrcode built-in UI: shaded region, scan box, corners, borders */
+#qr-shaded-region,
+.qr-scanner-fullscreen img,
+.qr-scanner-fullscreen > div > img {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Kill the library's inner scan-box wrapper borders and outlines */
+.qr-scanner-fullscreen > div {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* The library wraps content in nested divs — kill all borders recursively */
+.qr-scanner-fullscreen div[style] {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Hide the built-in scan region overlay (the shaded/bordered region) */
+.qr-scanner-fullscreen > div:nth-child(2) {
+  display: none !important;
+}
+
+/* ============================
+   MOBILE BROWSER FIXES
+   ============================ */
+
+/* iOS Safari: prevent zoom on input focus */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Samsung Internet & Chrome Android: hide browser chrome */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
 }

@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ray-Ban | Meta — Future Store Experience
 
-## Getting Started
+A PWA prototype demonstrating a future in-store eyewear discovery journey. Scan a frame, explore it in 3D, speak to an AI assistant, and get personalised colour and fit recommendations.
 
-First, run the development server:
+## Quick Start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) on your phone or browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Demo Mode
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Append `?demo=true` to the URL to bypass camera/mic requirements and use simulated responses:
 
-## Learn More
+```
+http://localhost:3000?demo=true
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Setup
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 1. GLB Model
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Place your Ray-Ban Meta GLB file at:
 
-## Deploy on Vercel
+```
+public/models/rayban-meta.glb
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Without this file, the 3D viewer will show a wireframe placeholder.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 2. ElevenLabs TTS (Optional)
+
+Copy `.env.local` and add your API key:
+
+```bash
+ELEVENLABS_API_KEY=your_key_here
+```
+
+Without a key, the assistant's responses will display as text only (no voice).
+
+### 3. Run
+
+```bash
+npm run dev     # Development
+npm run build   # Production build
+npm start       # Production server
+```
+
+## Features
+
+- **QR Scanner** — Scan a frame's QR code using the back camera
+- **3D Viewer** — Interactive GLB model with orbit controls and colourway switching
+- **Voice Input** — Speak naturally using Web Speech API (with text fallback)
+- **AI Orb** — Custom GLSL shader orb that responds to interaction states
+- **Colour Mode** — Front camera face scan with scripted colour recommendations
+- **Fit Mode** — Face measurement overlay with size guidance
+- **Details Mode** — Bottom sheet with full product specs
+- **TTS** — ElevenLabs text-to-speech for assistant responses
+- **PWA** — Add-to-home-screen, standalone mode, mobile-optimised
+
+## Tech Stack
+
+- Next.js 15 (App Router, TypeScript)
+- React Three Fiber + Drei (3D)
+- Tailwind CSS v4 + Framer Motion
+- Zustand (state management)
+- html5-qrcode (QR scanning)
+- Web Speech API (STT)
+- ElevenLabs (TTS)
+- MediaPipe-inspired face detection overlays
+
+## Deployment
+
+Deploy to Vercel:
+
+```bash
+npx vercel
+```
+
+Or connect your GitHub repo to Vercel for automatic deployments.
+
+Make sure to add `ELEVENLABS_API_KEY` as an environment variable in your Vercel project settings.
+
+## Project Structure
+
+```
+src/
+├── app/              # Next.js App Router pages + API routes
+├── components/       # UI components by feature
+│   ├── camera/       # Camera feed + face scanner
+│   ├── landing/      # Landing screen
+│   ├── modes/        # Colour, fit, details modes
+│   ├── orb/          # AI orb (R3F + GLSL)
+│   ├── scanner/      # QR scanner
+│   ├── shared/       # Permission gate, etc.
+│   ├── ui/           # Bottom sheet, save modal, transitions
+│   ├── viewer/       # 3D viewer hub + model
+│   └── voice/        # Voice input + speech hook
+├── data/             # Product data + dialogue scripts
+├── lib/              # Utilities (TTS, haptics, keyword router)
+└── store/            # Zustand state management
+```
