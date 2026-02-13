@@ -265,13 +265,9 @@ export default function VoiceInput() {
     }
   }, [isListening, setIsListening, setOrbState]);
 
-  const handleMicToggle = () => {
+  // ── Press-and-hold mic handlers ────────────────────────────────────
+  const handleMicDown = () => {
     triggerHaptic('light');
-
-    if (isListening) {
-      stopListening();
-      return;
-    }
 
     // If speaking, stop TTS first
     if (isSpeaking) {
@@ -286,6 +282,13 @@ export default function VoiceInput() {
     }
 
     startListening();
+  };
+
+  const handleMicUp = () => {
+    if (isListening) {
+      triggerHaptic('light');
+      stopListening();
+    }
   };
 
   const handleTextSubmit = (e: React.FormEvent) => {
@@ -305,33 +308,39 @@ export default function VoiceInput() {
     sendTextChat(text);
   };
 
-  // ── Conversation mode: big centered mic-only button ──────────────────
+  // ── Conversation mode: hold-to-talk mic button ──────────────────────
   if (isConversing) {
     return (
       <div className="flex flex-col items-center gap-3">
-        {/* Listening / interim transcript */}
+        {/* Real-time user transcription — prominent display */}
         <AnimatePresence>
           {(interimTranscript || isListening) && (
             <motion.div
-              className="w-full text-center"
-              initial={{ opacity: 0, y: 5 }}
+              className="w-full max-w-xs text-center px-4"
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.2 }}
             >
-              <p className="text-foreground/40 text-sm italic">
-                {interimTranscript || 'Listening...'}
+              <p className="text-foreground/70 text-base leading-relaxed">
+                {interimTranscript || (isListening ? '' : '')}
               </p>
+              {isListening && !interimTranscript && (
+                <p className="text-foreground/30 text-xs mt-1">Listening...</p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Large centred mic button */}
+        {/* Hold-to-talk mic button */}
         {isSupported && (
           <motion.button
             type="button"
-            onClick={handleMicToggle}
-            className={`relative flex-shrink-0 flex h-16 w-16 items-center justify-center rounded-full transition-all duration-200 ${
+            onPointerDown={handleMicDown}
+            onPointerUp={handleMicUp}
+            onPointerLeave={handleMicUp}
+            onContextMenu={(e) => e.preventDefault()}
+            className={`relative flex-shrink-0 flex h-16 w-16 items-center justify-center rounded-full transition-all duration-200 select-none ${
               isListening
                 ? 'bg-gold/20 border-2 border-gold'
                 : 'glass-card border border-glass-border'
@@ -424,12 +433,15 @@ export default function VoiceInput() {
           </div>
         </form>
 
-        {/* Mic button — always visible, separate from text box */}
+        {/* Mic button — hold to talk, enters full-screen voice mode */}
         {isSupported && (
           <motion.button
             type="button"
-            onClick={handleMicToggle}
-            className="relative flex-shrink-0 flex h-11 w-11 items-center justify-center rounded-full glass-card border border-glass-border transition-all duration-200"
+            onPointerDown={handleMicDown}
+            onPointerUp={handleMicUp}
+            onPointerLeave={handleMicUp}
+            onContextMenu={(e) => e.preventDefault()}
+            className="relative flex-shrink-0 flex h-11 w-11 items-center justify-center rounded-full glass-card border border-glass-border transition-all duration-200 select-none"
             whileTap={{ scale: 0.9 }}
           >
             <svg

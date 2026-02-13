@@ -26,6 +26,8 @@ export default function ViewerHub() {
   const isConversing = useAppStore((s) => s.isConversing);
   const setIsConversing = useAppStore((s) => s.setIsConversing);
   const streamingText = useAppStore((s) => s.streamingText);
+  const transcript = useAppStore((s) => s.transcript);
+  const isListening = useAppStore((s) => s.isListening);
   const recommendedProductId = useAppStore((s) => s.recommendedProductId);
   const previousProductId = useAppStore((s) => s.previousProductId);
   const setActiveProductId = useAppStore((s) => s.setActiveProductId);
@@ -298,13 +300,31 @@ export default function ViewerHub() {
             </svg>
           </button>
 
-          {/* Streaming text */}
+          {/* User transcript + AI streaming text */}
           <div
             className="absolute inset-x-0 bottom-0 z-20 flex flex-col items-center pointer-events-none"
             style={{ top: '15%' }}
           >
             <div className="flex-1" />
-            <div className="px-8 pb-4 w-full max-w-sm">
+            <div className="px-8 pb-4 w-full max-w-sm space-y-3">
+              {/* User's spoken words — shown while listening or just after */}
+              <AnimatePresence>
+                {isConversing && (transcript || isListening) && !streamingText && (
+                  <motion.div
+                    key="user-transcript"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    <p className="text-foreground/50 text-sm leading-relaxed text-center italic">
+                      {transcript || (isListening ? 'Listening...' : '')}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* AI response */}
               <AnimatePresence mode="wait">
                 {streamingText && (
                   <motion.div
