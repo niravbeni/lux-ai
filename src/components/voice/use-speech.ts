@@ -24,6 +24,16 @@ interface SpeechRecognitionEvent extends Event {
   resultIndex: number;
 }
 
+// ── Platform detection ─────────────────────────────────────────────────
+function isIOSSafari(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  return (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
 // Max recording duration in ms — auto-stops to prevent runaway recordings
 const MAX_RECORD_MS = 20_000;
 
@@ -89,8 +99,8 @@ function useWhisperFallback(
 
     // Set listening immediately for UI feedback
     setIsListening(true);
-    setInterimTranscript('Starting...');
-    onInterimRef.current?.('Starting...');
+    setInterimTranscript('');
+    onInterimRef.current?.('');
     acquiringRef.current = true;
 
     navigator.mediaDevices
@@ -160,9 +170,9 @@ function useWhisperFallback(
 
           const audioBlob = new Blob(chunks, { type: mimeType });
 
-          // Show transcribing feedback
-          setInterimTranscript('Transcribing...');
-          onInterimRef.current?.('Transcribing...');
+          // Show processing feedback (subtle)
+          setInterimTranscript('Processing...');
+          onInterimRef.current?.('Processing...');
 
           try {
             const ext = mimeType.includes('webm') ? 'webm' : 'm4a';
@@ -424,13 +434,16 @@ function useWebSpeech({
 
 // ── Public hook: auto-selects the right engine ─────────────────────────
 export function useSpeech(options: UseSpeechOptions = {}): UseSpeechReturn {
+  const isIOS = isIOSSafari();
+
   // Both hooks called unconditionally (Rules of Hooks)
   const whisper = useWhisperFallback(options.onResult, options.onInterim);
   const webSpeech = useWebSpeech(options);
 
-  // Prefer Web Speech API — it provides real-time transcription.
-  // Modern iOS Safari (14.5+) supports webkitSpeechRecognition.
-  // Only fall back to Whisper when Web Speech API is truly unavailable.
+  // iOS Safari: webkitSpeechRecognition exists but is unreliable,
+  // so we use the Whisper (MediaRecorder → server transcription) path.
+  // All other platforms: use Web Speech API for real-time transcription.
+  if (isIOS && whisper.isSupported) return whisper;
   if (webSpeech.isSupported) return webSpeech;
   return whisper;
 }
