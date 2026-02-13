@@ -30,7 +30,7 @@ export default function DetailsMode() {
       transition={{ duration: 0.4 }}
     >
       {/* Colour-morphing background — same as product page */}
-      <div className="!absolute inset-0 colour-morph-bg z-0">
+      <div className="!fixed inset-0 colour-morph-bg z-0">
         <div className="colour-morph-blob-gold" />
       </div>
 

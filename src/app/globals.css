@@ -126,7 +126,7 @@ canvas {
    ============================ */
 
 .colour-morph-bg {
-  background: #0e0e10;
+  background: var(--background);
   overflow: visible;
 }
 

@@ -50,6 +50,10 @@ function useWhisperFallback(
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track whether a stop was requested before getUserMedia resolved
+  const wantStopRef = useRef(false);
+  // Track if getUserMedia is in progress (prevent double starts)
+  const acquiringRef = useRef(false);
 
   // Use refs for callbacks so the onstop closure always has the latest
   const onResultRef = useRef(onResult);
@@ -86,12 +90,33 @@ function useWhisperFallback(
       return;
     }
 
+    // If getUserMedia is in progress, don't start again
+    if (acquiringRef.current) return;
+
+    wantStopRef.current = false;
     setInterimTranscript('');
     chunksRef.current = [];
+
+    // Set listening immediately for UI feedback
+    setIsListening(true);
+    setInterimTranscript('Starting...');
+    onInterimRef.current?.('Starting...');
+    acquiringRef.current = true;
 
     navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream) => {
+        acquiringRef.current = false;
+
+        // If stop was requested while we were waiting for getUserMedia, abort
+        if (wantStopRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          setIsListening(false);
+          setInterimTranscript('');
+          wantStopRef.current = false;
+          return;
+        }
+
         streamRef.current = stream;
 
         // Pick a supported mime type — iOS Safari supports audio/mp4
@@ -188,9 +213,8 @@ function useWhisperFallback(
 
         // Start recording — collect data every 500ms (iOS needs larger chunks)
         recorder.start(500);
-        setIsListening(true);
-        setInterimTranscript('Listening — tap mic to send');
-        onInterimRef.current?.('Listening — tap mic to send');
+        setInterimTranscript('Listening...');
+        onInterimRef.current?.('Listening...');
 
         // Auto-stop after MAX_RECORD_MS
         autoStopRef.current = setTimeout(() => {
@@ -198,12 +222,21 @@ function useWhisperFallback(
         }, MAX_RECORD_MS);
       })
       .catch((err) => {
+        acquiringRef.current = false;
         console.error('getUserMedia error:', err);
         setIsListening(false);
+        setInterimTranscript('');
       });
   }, [isSupported, finishRecording]);
 
   const stopListening = useCallback(() => {
+    // If getUserMedia is still acquiring, flag for cancellation
+    if (acquiringRef.current) {
+      wantStopRef.current = true;
+      // Don't set isListening false yet — the getUserMedia callback will handle it
+      return;
+    }
+
     finishRecording();
     // Don't set isListening false here — let onstop handle it after transcription
   }, [finishRecording]);
@@ -242,7 +275,6 @@ function useWebSpeech({
   onResult,
   onInterim,
   lang = 'en-US',
-  continuous = false,
 }: UseSpeechOptions) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -250,6 +282,15 @@ function useWebSpeech({
   const recognitionRef = useRef<ReturnType<typeof createRecognition> | null>(
     null,
   );
+
+  // Use refs for callbacks to prevent stale closures
+  const onResultRef = useRef(onResult);
+  const onInterimRef = useRef(onInterim);
+  useEffect(() => { onResultRef.current = onResult; }, [onResult]);
+  useEffect(() => { onInterimRef.current = onInterim; }, [onInterim]);
+
+  // Accumulate all speech across the session
+  const accumulatedRef = useRef('');
 
   const isSupported =
     typeof window !== 'undefined' &&
@@ -265,7 +306,8 @@ function useWebSpeech({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const recognition = new (SpeechRecognition as any)();
     recognition.lang = lang;
-    recognition.continuous = continuous;
+    // Use continuous mode so recognition keeps going while held
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     return recognition;
@@ -274,6 +316,10 @@ function useWebSpeech({
   const startListening = useCallback(() => {
     if (!isSupported) return;
 
+    // If already listening, do nothing
+    if (recognitionRef.current) return;
+
+    accumulatedRef.current = '';
     const recognition = createRecognition();
     if (!recognition) return;
 
@@ -282,32 +328,48 @@ function useWebSpeech({
     recognition.onstart = () => setIsListening(true);
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let finalTranscript = '';
+      let finalSoFar = '';
       let interim = '';
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      // Iterate ALL results (not just from resultIndex) to build the full transcript
+      for (let i = 0; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
-          finalTranscript += result[0].transcript;
+          finalSoFar += result[0].transcript;
         } else {
           interim += result[0].transcript;
         }
       }
 
-      if (interim) {
-        setInterimTranscript(interim);
-        onInterim?.(interim);
-      }
+      accumulatedRef.current = finalSoFar;
 
-      if (finalTranscript) {
-        setTranscript(finalTranscript);
-        setInterimTranscript('');
-        onResult?.(finalTranscript);
+      // Show the full text so far (final + interim) as the live transcription
+      const liveText = (finalSoFar + ' ' + interim).trim();
+      if (liveText) {
+        setInterimTranscript(liveText);
+        onInterimRef.current?.(liveText);
       }
     };
 
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => {
+      // Don't clear listening state on 'no-speech' — let the user keep holding
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+
+      // When recognition ends (user released button → stop() called),
+      // deliver the accumulated transcript
+      const finalText = accumulatedRef.current.trim();
+      if (finalText) {
+        setTranscript(finalText);
+        setInterimTranscript('');
+        onResultRef.current?.(finalText);
+      } else {
+        setInterimTranscript('');
+      }
+      recognitionRef.current = null;
+    };
 
     try {
       recognition.start();
@@ -315,24 +377,30 @@ function useWebSpeech({
       setIsListening(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSupported, lang, continuous]);
+  }, [isSupported, lang]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // Already stopped
+      }
+      // Don't null out the ref here — onend handler will do it after delivering results
     }
-    setIsListening(false);
   }, []);
 
   const resetTranscript = useCallback(() => {
     setTranscript('');
     setInterimTranscript('');
+    accumulatedRef.current = '';
   }, []);
 
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) recognitionRef.current.stop();
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch { /* */ }
+      }
     };
   }, []);
 

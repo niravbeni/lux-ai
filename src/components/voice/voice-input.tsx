@@ -277,10 +277,12 @@ export default function VoiceInput() {
     // Enter conversation mode if not already
     if (!isConversing) {
       setIsConversing(true);
-      setStreamingText('');
       setRecommendedProductId(null);
     }
 
+    // Clear old AI text so user transcript is prominent
+    setStreamingText('');
+    setTranscript('');
     startListening();
   };
 
@@ -322,12 +324,13 @@ export default function VoiceInput() {
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.2 }}
             >
-              <p className="text-foreground/70 text-base leading-relaxed">
-                {interimTranscript || (isListening ? '' : '')}
-              </p>
-              {isListening && !interimTranscript && (
-                <p className="text-foreground/30 text-xs mt-1">Listening...</p>
-              )}
+              {interimTranscript ? (
+                <p className="text-foreground/70 text-base leading-relaxed">
+                  {interimTranscript}
+                </p>
+              ) : isListening ? (
+                <p className="text-foreground/30 text-sm">Listening...</p>
+              ) : null}
             </motion.div>
           )}
         </AnimatePresence>
