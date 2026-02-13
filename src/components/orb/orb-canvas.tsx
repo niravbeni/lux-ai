@@ -27,7 +27,10 @@ export default function OrbCanvas({
         camera={{ zoom: 1, position: [0, 0, 1], near: 0.1, far: 10 }}
         gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
         dpr={[1, 2]}
-        style={{ touchAction: 'none' }}
+        style={{
+          touchAction: interactive ? 'none' : 'auto',
+          pointerEvents: interactive ? 'auto' : 'none',
+        }}
       >
         <Suspense fallback={null}>
           <AiOrb scale={scale} interactive={interactive} offsetY={offsetY} />

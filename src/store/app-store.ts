@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DEFAULT_PRODUCT_ID } from '@/data/product-catalog';
 
 export type AppScreen =
   | 'landing'
@@ -31,6 +32,11 @@ export type ColourResult = {
   reasoning: string;
 };
 
+export type ChatMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
 interface AppState {
   // Navigation
   screen: AppScreen;
@@ -46,7 +52,11 @@ interface AppState {
   demoMode: boolean;
   setDemoMode: (demo: boolean) => void;
 
-  // Product
+  // Product — active product from catalog
+  activeProductId: string;
+  previousProductId: string | null;
+  setActiveProductId: (id: string) => void;
+
   scannedProductId: string | null;
   setScannedProductId: (id: string | null) => void;
 
@@ -73,6 +83,27 @@ interface AppState {
   // TTS
   isSpeaking: boolean;
   setIsSpeaking: (speaking: boolean) => void;
+
+  // Conversation mode — toggles between product view and orb chat
+  isConversing: boolean;
+  setIsConversing: (v: boolean) => void;
+
+  // Chat history for multi-turn GPT conversation
+  chatHistory: ChatMessage[];
+  addChatMessage: (role: 'user' | 'assistant', content: string) => void;
+  clearChatHistory: () => void;
+
+  // Streaming text — displayed word-by-word over the orb
+  streamingText: string;
+  setStreamingText: (text: string) => void;
+
+  // Recommended frame from AI (product id or null)
+  recommendedProductId: string | null;
+  setRecommendedProductId: (id: string | null) => void;
+
+  // AI-recommended colourway (colourway id or null)
+  aiRecommendedColourway: string | null;
+  setAiRecommendedColourway: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -94,6 +125,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   setDemoMode: (demoMode) => set({ demoMode }),
 
   // Product
+  activeProductId: DEFAULT_PRODUCT_ID,
+  previousProductId: null,
+  setActiveProductId: (activeProductId) => {
+    const current = get().activeProductId;
+    if (activeProductId !== current) {
+      set({ activeProductId, previousProductId: current });
+    }
+  },
+
   scannedProductId: null,
   setScannedProductId: (scannedProductId) => set({ scannedProductId }),
 
@@ -120,4 +160,26 @@ export const useAppStore = create<AppState>((set, get) => ({
   // TTS
   isSpeaking: false,
   setIsSpeaking: (isSpeaking) => set({ isSpeaking }),
+
+  // Conversation mode
+  isConversing: false,
+  setIsConversing: (isConversing) => set({ isConversing }),
+
+  // Chat history
+  chatHistory: [],
+  addChatMessage: (role, content) =>
+    set((s) => ({ chatHistory: [...s.chatHistory, { role, content }] })),
+  clearChatHistory: () => set({ chatHistory: [] }),
+
+  // Streaming text
+  streamingText: '',
+  setStreamingText: (streamingText) => set({ streamingText }),
+
+  // Recommended frame
+  recommendedProductId: null,
+  setRecommendedProductId: (recommendedProductId) => set({ recommendedProductId }),
+
+  // AI-recommended colourway
+  aiRecommendedColourway: null,
+  setAiRecommendedColourway: (aiRecommendedColourway) => set({ aiRecommendedColourway }),
 }));

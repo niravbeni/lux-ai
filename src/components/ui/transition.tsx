@@ -4,28 +4,32 @@ import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGLTF } from '@react-three/drei';
 import { useAppStore } from '@/store/app-store';
-import { productData } from '@/data/product-data';
-
-useGLTF.preload(productData.modelPath);
+import { getProduct } from '@/data/product-catalog';
 
 export default function TransitionScreen() {
   const setScreen = useAppStore((s) => s.setScreen);
   const setOrbState = useAppStore((s) => s.setOrbState);
   const setAssistantMessage = useAppStore((s) => s.setAssistantMessage);
+  const activeProductId = useAppStore((s) => s.activeProductId);
 
   useEffect(() => {
     setOrbState('idle');
 
+    const product = getProduct(activeProductId);
+
+    // Ensure preload is triggered for the active product
+    useGLTF.preload(product.modelPath);
+
     // Wait for BOTH: minimum display time AND model fully downloaded
     const minDelay = new Promise((r) => setTimeout(r, 1200));
-    const modelReady = fetch(productData.modelPath, { cache: 'force-cache' })
+    const modelReady = fetch(product.modelPath, { cache: 'force-cache' })
       .catch(() => {});
 
     Promise.all([minDelay, modelReady]).then(() => {
       setAssistantMessage('');
       setScreen('viewer-hub');
     });
-  }, [setScreen, setOrbState, setAssistantMessage]);
+  }, [setScreen, setOrbState, setAssistantMessage, activeProductId]);
 
   return (
     <motion.div

@@ -6,16 +6,16 @@ import { AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
 import { useGLTF } from '@react-three/drei';
 import { useAppStore } from '@/store/app-store';
-import { productData } from '@/data/product-data';
+import { getProduct, DEFAULT_PRODUCT_ID } from '@/data/product-catalog';
 import LandingScreen from '@/components/landing/landing-screen';
 
-// Preload 3D model the moment the app shell module loads
-useGLTF.preload(productData.modelPath);
+// Preload the default 3D model the moment the app shell module loads
+const defaultProduct = getProduct(DEFAULT_PRODUCT_ID);
+useGLTF.preload(defaultProduct.modelPath);
 
-// Also prime the browser HTTP cache with a native fetch —
-// this starts the download at the network level immediately
+// Also prime the browser HTTP cache with a native fetch
 if (typeof window !== 'undefined') {
-  fetch(productData.modelPath).catch(() => {});
+  fetch(defaultProduct.modelPath).catch(() => {});
 }
 
 // Dynamic imports for code-splitting heavy components
@@ -44,6 +44,7 @@ const SaveModal = dynamic(() => import('@/components/ui/save-modal'), {
 export default function AppShell() {
   const screen = useAppStore((s) => s.screen);
   const setDemoMode = useAppStore((s) => s.setDemoMode);
+  const activeProductId = useAppStore((s) => s.activeProductId);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -52,6 +53,15 @@ export default function AppShell() {
       setDemoMode(true);
     }
   }, [searchParams, setDemoMode]);
+
+  // Preload the active product model whenever it changes
+  useEffect(() => {
+    const product = getProduct(activeProductId);
+    useGLTF.preload(product.modelPath);
+    if (typeof window !== 'undefined') {
+      fetch(product.modelPath).catch(() => {});
+    }
+  }, [activeProductId]);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background">

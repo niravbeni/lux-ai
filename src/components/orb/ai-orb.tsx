@@ -73,7 +73,8 @@ const fragmentShader = `
     uv.y -= u_offsetY;
 
     float t = u_time;
-    t += u_pulse * sin(u_time * 4.0) * 0.3;
+    // Pulse adds subtle time modulation — gentle, not frantic
+    t += u_pulse * sin(u_time * 2.0) * 0.15 + u_pulse * sin(u_time * 3.5) * 0.06;
 
     // === IDLE: calm slow drift, not bubbly ===
     float breathe = sin(t * 0.4) * 0.015;
@@ -86,21 +87,21 @@ const fragmentShader = `
     vec2 toTouch = u_touch - uv;
     float tp = u_touchPress; // shorthand
 
-    // When touched: the noise speeds up — orb "thinks" faster
-    t += tp * 1.5;
+    // When touched: the noise speeds up gently — orb "thinks" faster
+    t += tp * 0.6;
 
     // Strong magnetic attraction — orb reaches toward your finger
     float attraction = tp * 0.18 * exp(-touchDist * touchDist * 2.0);
     uv += toTouch * attraction;
 
-    // Organic turbulence near touch — noise-driven distortion, no visible rings
-    float touchNoise1 = fbm(uv * 3.0 + u_touch * 2.0 + t * 1.5, 2);
-    float touchNoise2 = fbm(uv * 2.5 - u_touch * 1.5 + t * 1.2 + 50.0, 2);
-    float touchFalloff = tp * 0.12 * exp(-touchDist * touchDist * 2.0);
+    // Organic turbulence near touch — noise-driven distortion, broad & strong
+    float touchNoise1 = fbm(uv * 2.5 + u_touch * 2.0 + t * 1.2, 3);
+    float touchNoise2 = fbm(uv * 2.0 - u_touch * 1.5 + t * 1.0 + 50.0, 3);
+    float touchFalloff = tp * 0.22 * exp(-touchDist * touchDist * 1.2);
     uv += vec2(touchNoise1 - 0.5, touchNoise2 - 0.5) * touchFalloff;
 
-    // Orbital swirl — surface rotates slightly around the touch point
-    float swirlAngle = tp * 0.3 * exp(-touchDist * 1.5);
+    // Orbital swirl — gentle rotation around the touch point
+    float swirlAngle = tp * 0.12 * exp(-touchDist * 1.5);
     float cs = cos(swirlAngle);
     float sn = sin(swirlAngle);
     vec2 rel = uv - u_touch;
@@ -123,8 +124,8 @@ const fragmentShader = `
     vec3 emanationCol = bgCol * (emanation + atmosphere) + bgPal * nearGlow * 0.3;
     float emanationAlpha = emanation * 0.6 + atmosphere * 0.4 + nearGlow * 0.15;
 
-    // Pulse and touch affect emanation everywhere
-    emanationCol *= 1.0 + u_pulse * 0.3 * sin(t * 3.0);
+    // Pulse and touch affect emanation everywhere — orb glows outward when speaking
+    emanationCol *= 1.0 + u_pulse * 0.5 * sin(t * 3.0) + u_pulse * 0.2;
     float emaTurbulence = fbm(uv * 1.5 + u_touch + t * 0.8, 2);
     emanationCol += bgPal * tp * 0.3 * emaTurbulence * exp(-l * 0.15);
     emanationAlpha += tp * 0.12 * exp(-l * 0.1);
@@ -195,8 +196,11 @@ const fragmentShader = `
     col += vec3(0.05, 0.08, 0.12) * (1.0 - rim) * sm * 2.0;
     col += abs(norm) * (1.0 - d) * sm * 0.25;
 
-    // Pulse brightness
-    col += u_pulse * 0.08 * vec3(0.9, 0.85, 0.7) * sm;
+    // Pulse brightness — strong warm glow when speaking
+    col += u_pulse * 0.18 * vec3(0.95, 0.88, 0.7) * sm;
+    // Pulse colour shift — surface shimmers between warm tones
+    float pulseShift = u_pulse * 0.15 * sin(t * 3.0 + dist * 4.0);
+    col += pal(a + pulseShift, vec3(0.3), vec3(0.4), vec3(1.0), vec3(0.05, 0.6, 0.8)) * u_pulse * 0.08 * sm;
 
     float alpha = sm;
 
@@ -221,7 +225,7 @@ function getOrbTargets(state: OrbState) {
     case 'recognition':
       return { pulse: 0.0, ripple: 1.0, scale: 0.84 };
     case 'speaking':
-      return { pulse: 0.7, ripple: 0.2, scale: 0.74 };
+      return { pulse: 0.35, ripple: 0.15, scale: 0.72 };
     default:
       return { pulse: 0.15, ripple: 0.0, scale: 0.7 };
   }
@@ -255,7 +259,8 @@ export default function AiOrb({ scale = 1, interactive = false, offsetY = 0 }: A
   );
 
   useFrame((state) => {
-    uniforms.u_time.value = state.clock.elapsedTime;
+    const t = state.clock.elapsedTime;
+    uniforms.u_time.value = t;
     uniforms.u_resolution.value.set(size.width * scale, size.height * scale);
 
     const targets = getOrbTargets(orbState);
@@ -265,6 +270,22 @@ export default function AiOrb({ scale = 1, interactive = false, offsetY = 0 }: A
     uniforms.u_ripple.value += (targets.ripple - uniforms.u_ripple.value) * lerp;
     uniforms.u_scale.value += (targets.scale - uniforms.u_scale.value) * lerp;
     uniforms.u_offsetY.value = offsetY;
+
+    // ── Speaking morph: drive the touch uniforms with a wandering virtual finger
+    // Reuses the shader's swirl/attraction/turbulence for organic morphing.
+    if (orbState === 'speaking') {
+      // Slow, drifting touch point — less spin, more presence
+      const wanderX = Math.sin(t * 0.35) * 0.3 + Math.sin(t * 0.8) * 0.12;
+      const wanderY = Math.cos(t * 0.28) * 0.25 + Math.cos(t * 0.65) * 0.1;
+      touchRef.current.x += (wanderX - touchRef.current.x) * 0.03;
+      touchRef.current.y += (wanderY - touchRef.current.y) * 0.03;
+      // High, slowly fluctuating pressure — drives strong noise morph
+      const press = 0.7 + Math.sin(t * 0.9) * 0.18 + Math.sin(t * 2.0) * 0.08;
+      touchRef.current.targetPress = press;
+    } else if (!interactive || touchRef.current.targetPress < 0.01) {
+      // Not speaking & not user-touching — let morph fade out gracefully
+      touchRef.current.targetPress *= 0.94;
+    }
 
     // Smooth touch interpolation — fast ramp up, slow decay for organic feel
     const touch = touchRef.current;

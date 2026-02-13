@@ -41,8 +41,10 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         {/* Prevent phone number detection */}
         <meta name="format-detection" content="telephone=no" />
-        {/* Preload 3D model at browser level — starts download before React hydrates */}
+        {/* Preload 3D models at browser level — starts download before React hydrates */}
         <link rel="preload" href="/models/source/rayban.glb" as="fetch" crossOrigin="anonymous" />
+        <link rel="prefetch" href="/models/source/oakley.glb" crossOrigin="anonymous" />
+        <link rel="prefetch" href="/models/source/aviator.glb" crossOrigin="anonymous" />
       </head>
       <body className={`${geistSans.variable} antialiased`}>
         {children}

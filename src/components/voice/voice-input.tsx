@@ -1,24 +1,236 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store/app-store';
 import { useSpeech } from './use-speech';
 import { routeFromTranscript } from '@/lib/keyword-router';
 import { triggerHaptic } from '@/lib/haptics';
+import { speak, stopSpeaking } from '@/lib/tts';
+import { getProduct, getColourway } from '@/data/product-catalog';
+
+// Strip [FRAME:product-id] and [COLOUR:colourway-id] tags from text and extract ids
+function parseTags(text: string): { clean: string; frameId: string | null; colourId: string | null } {
+  const frameMatch = text.match(/\[FRAME:([a-z0-9-]+)\]/i);
+  const colourMatch = text.match(/\[COLOUR:([a-z0-9-]+)\]/i);
+  return {
+    clean: text
+      .replace(/\s*\[FRAME:[a-z0-9-]+\]/gi, '')
+      .replace(/\s*\[COLOUR:[a-z0-9-]+\]/gi, '')
+      .trim(),
+    frameId: frameMatch ? frameMatch[1] : null,
+    colourId: colourMatch ? colourMatch[1] : null,
+  };
+}
 
 export default function VoiceInput() {
   const setScreen = useAppStore((s) => s.setScreen);
   const setOrbState = useAppStore((s) => s.setOrbState);
   const setTranscript = useAppStore((s) => s.setTranscript);
   const setIsListening = useAppStore((s) => s.setIsListening);
-  const [textInput, setTextInput] = useState('');
+  const isConversing = useAppStore((s) => s.isConversing);
+  const setIsConversing = useAppStore((s) => s.setIsConversing);
+  const setStreamingText = useAppStore((s) => s.setStreamingText);
+  const setAssistantMessage = useAppStore((s) => s.setAssistantMessage);
+  const addChatMessage = useAppStore((s) => s.addChatMessage);
+  const setRecommendedProductId = useAppStore((s) => s.setRecommendedProductId);
+  const setAiRecommendedColourway = useAppStore((s) => s.setAiRecommendedColourway);
+  const setActiveColourway = useAppStore((s) => s.setActiveColourway);
+  const setActiveProductId = useAppStore((s) => s.setActiveProductId);
+  const activeProductId = useAppStore((s) => s.activeProductId);
+  const isSpeaking = useAppStore((s) => s.isSpeaking);
 
+  const [textInput, setTextInput] = useState('');
+  const isStreamingRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // ── Core fetch + stream helper ───────────────────────────────────────
+  // Returns the full cleaned text and optional frameId.
+  const fetchChatStream = useCallback(
+    async (
+      userText: string,
+      controller: AbortController,
+      /** Called with each incremental chunk of cleaned text */
+      onChunk: (cleanSoFar: string) => void,
+    ): Promise<{ clean: string; frameId: string | null; colourId: string | null } | null> => {
+      addChatMessage('user', userText);
+      const chatHistory = useAppStore.getState().chatHistory;
+
+      // Signal a fresh session on the very first user message so the
+      // server rolls a new random persona for this conversation.
+      const isFirstMessage = chatHistory.filter((m) => m.role === 'user').length === 1;
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: chatHistory,
+          currentProductId: activeProductId,
+          newSession: isFirstMessage,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok || !response.body) return null;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fullText += decoder.decode(value, { stream: true });
+        onChunk(parseTags(fullText).clean);
+      }
+
+      const { clean, frameId, colourId } = parseTags(fullText);
+      addChatMessage('assistant', clean);
+      return { clean, frameId, colourId };
+    },
+    [activeProductId, addChatMessage],
+  );
+
+  // ── Voice-mode chat (full-screen orb) ──────────────────────────────
+  const sendToChat = useCallback(
+    async (userText: string) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      isStreamingRef.current = true;
+      setOrbState('processing');
+      setStreamingText('');
+      setRecommendedProductId(null);
+      setAiRecommendedColourway(null);
+
+      try {
+        const result = await fetchChatStream(userText, controller, (chunk) =>
+          setStreamingText(chunk),
+        );
+
+        isStreamingRef.current = false;
+
+        if (!result) {
+          setStreamingText("I didn't quite catch that — try asking about the frames, colour, or fit.");
+          setOrbState('idle');
+          return;
+        }
+
+        setAssistantMessage(result.clean);
+        if (result.frameId) setRecommendedProductId(result.frameId);
+        if (result.colourId) setAiRecommendedColourway(result.colourId);
+
+        // Calm the orb while TTS audio is being fetched —
+        // speak() will set 'speaking' only when audio actually plays
+        setOrbState('idle');
+        triggerHaptic('light');
+        await speak(result.clean).catch(() => {});
+
+        // After TTS finishes: if the AI recommended a colourway (and/or frame),
+        // automatically return to the product page so the user sees the result.
+        if (result.colourId || result.frameId) {
+          // Switch frame if a different one was recommended
+          if (result.frameId && result.frameId !== activeProductId) {
+            setActiveProductId(result.frameId);
+          }
+
+          // Apply the recommended colourway if it exists in the universal pool
+          if (result.colourId && getColourway(result.colourId)) {
+            setActiveColourway(result.colourId);
+          }
+
+          // Small delay so the user hears the last bit of speech, then exit
+          await new Promise((r) => setTimeout(r, 600));
+          setIsConversing(false);
+          setStreamingText('');
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        setStreamingText("Something went wrong — try again.");
+        setOrbState('idle');
+        isStreamingRef.current = false;
+      }
+    },
+    [fetchChatStream, setOrbState, setStreamingText, setRecommendedProductId, setAiRecommendedColourway, setAssistantMessage, activeProductId, setActiveProductId, setActiveColourway, setIsConversing],
+  );
+
+  // ── Text-mode chat (inline, no orb) ────────────────────────────────
+  const sendTextChat = useCallback(
+    async (userText: string) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      isStreamingRef.current = true;
+      setRecommendedProductId(null);
+      setAiRecommendedColourway(null);
+
+      // Show a brief "thinking" state inline
+      setAssistantMessage('...');
+
+      try {
+        const result = await fetchChatStream(userText, controller, (chunk) =>
+          setAssistantMessage(chunk),
+        );
+
+        isStreamingRef.current = false;
+
+        if (!result) {
+          setAssistantMessage("I didn't quite catch that — try asking about the frames, colour, or fit.");
+          return;
+        }
+
+        setAssistantMessage(result.clean);
+        if (result.frameId) setRecommendedProductId(result.frameId);
+        if (result.colourId) setAiRecommendedColourway(result.colourId);
+
+        // Auto-apply colourway and/or frame switch in text mode too
+        if (result.frameId && result.frameId !== activeProductId) {
+          setActiveProductId(result.frameId);
+        }
+        if (result.colourId && getColourway(result.colourId)) {
+          setActiveColourway(result.colourId);
+        }
+
+        // Read the reply aloud
+        await speak(result.clean).catch(() => {});
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        setAssistantMessage("Something went wrong — try again.");
+        isStreamingRef.current = false;
+      }
+    },
+    [fetchChatStream, setRecommendedProductId, setAiRecommendedColourway, setAssistantMessage, activeProductId, setActiveProductId, setActiveColourway],
+  );
+
+  // Handle voice/text result
   const handleResult = useCallback(
     (text: string) => {
       setTranscript(text);
-      setOrbState('processing');
 
+      // If in conversation mode, always send to GPT (but check keyword router for navigation first)
+      if (isConversing) {
+        // Check if user wants to navigate somewhere
+        const route = routeFromTranscript(text);
+        if (route) {
+          triggerHaptic('medium');
+          setIsConversing(false);
+          setStreamingText('');
+          setTimeout(() => {
+            setScreen(route.screen);
+            setOrbState('idle');
+          }, 400);
+          return;
+        }
+
+        // Otherwise, send to GPT
+        sendToChat(text);
+        return;
+      }
+
+      // Not in conversation mode — keyword router only
+      setOrbState('processing');
       const route = routeFromTranscript(text);
       if (route) {
         triggerHaptic('medium');
@@ -27,12 +239,12 @@ export default function VoiceInput() {
           setOrbState('idle');
         }, 600);
       } else {
-        setTimeout(() => {
-          setOrbState('idle');
-        }, 1500);
+        // No keyword match outside conversation mode — enter conversation mode and send to GPT
+        setIsConversing(true);
+        sendToChat(text);
       }
     },
-    [setTranscript, setOrbState, setScreen]
+    [setTranscript, setOrbState, setScreen, isConversing, setIsConversing, setStreamingText, sendToChat]
   );
 
   const {
@@ -48,46 +260,134 @@ export default function VoiceInput() {
 
   useEffect(() => {
     setIsListening(isListening);
-    setOrbState(isListening ? 'listening' : 'idle');
+    if (isListening) {
+      setOrbState('listening');
+    }
   }, [isListening, setIsListening, setOrbState]);
 
   const handleMicToggle = () => {
     triggerHaptic('light');
+
     if (isListening) {
       stopListening();
-    } else {
-      startListening();
+      return;
     }
+
+    // If speaking, stop TTS first
+    if (isSpeaking) {
+      stopSpeaking();
+    }
+
+    // Enter conversation mode if not already
+    if (!isConversing) {
+      setIsConversing(true);
+      setStreamingText('');
+      setRecommendedProductId(null);
+    }
+
+    startListening();
   };
 
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (textInput.trim()) {
-      handleResult(textInput.trim());
-      setTextInput('');
+    const text = textInput.trim();
+    if (!text) return;
+    setTextInput('');
+
+    // If we're in full-screen conversation mode, exit it first
+    if (isConversing) {
+      stopSpeaking();
+      setIsConversing(false);
+      setStreamingText('');
     }
+
+    // Always send text to GPT — the AI will suggest features when relevant
+    sendTextChat(text);
   };
 
-  return (
-    <div className="flex flex-col items-center gap-2 px-6">
-      {/* Listening indicator */}
-      <AnimatePresence>
-        {(interimTranscript || isListening) && (
-          <motion.div
-            className="w-full text-center"
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.2 }}
-          >
-            <p className="text-foreground/40 text-sm italic">
-              {interimTranscript || 'Listening...'}
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+  // ── Conversation mode: big centered mic-only button ──────────────────
+  if (isConversing) {
+    return (
+      <div className="flex flex-col items-center gap-3">
+        {/* Listening / interim transcript */}
+        <AnimatePresence>
+          {(interimTranscript || isListening) && (
+            <motion.div
+              className="w-full text-center"
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.2 }}
+            >
+              <p className="text-foreground/40 text-sm italic">
+                {interimTranscript || 'Listening...'}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {/* Text input + separate mic button */}
+        {/* Large centred mic button */}
+        {isSupported && (
+          <motion.button
+            type="button"
+            onClick={handleMicToggle}
+            className={`relative flex-shrink-0 flex h-16 w-16 items-center justify-center rounded-full transition-all duration-200 ${
+              isListening
+                ? 'bg-gold/20 border-2 border-gold'
+                : 'glass-card border border-glass-border'
+            }`}
+            whileTap={{ scale: 0.85 }}
+          >
+            {/* Pulse ring — listening */}
+            {isListening && (
+              <motion.div
+                className="absolute inset-0 rounded-full border-2 border-gold/30"
+                initial={{ scale: 1, opacity: 1 }}
+                animate={{ scale: 1.8, opacity: 0 }}
+                transition={{ duration: 1.2, repeat: Infinity }}
+              />
+            )}
+
+            {/* Speaking pulse — breathing glow when AI is talking back */}
+            {isSpeaking && !isListening && (
+              <>
+                <motion.div
+                  className="absolute inset-0 rounded-full bg-gold/10"
+                  animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.15, 0.4] }}
+                  transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                />
+                <motion.div
+                  className="absolute inset-0 rounded-full border border-gold/20"
+                  animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }}
+                  transition={{ duration: 2.0, repeat: Infinity, ease: 'easeInOut' }}
+                />
+              </>
+            )}
+
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={isListening ? '#C9A96E' : isSpeaking ? '#C9A96E' : '#F5F0EB'}
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="relative z-10"
+            >
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+            </svg>
+          </motion.button>
+        )}
+      </div>
+    );
+  }
+
+  // ── Product view: text input + small mic button ────────────────────
+  return (
+    <div className="flex flex-col items-center gap-2">
       <div className="flex items-center gap-3 w-full max-w-sm">
         {/* Text input box */}
         <form onSubmit={handleTextSubmit} className="flex-1 min-w-0">
@@ -129,28 +429,15 @@ export default function VoiceInput() {
           <motion.button
             type="button"
             onClick={handleMicToggle}
-            className={`relative flex-shrink-0 flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200 ${
-              isListening
-                ? 'bg-gold/20 border-2 border-gold'
-                : 'glass-card border border-glass-border'
-            }`}
+            className="relative flex-shrink-0 flex h-11 w-11 items-center justify-center rounded-full glass-card border border-glass-border transition-all duration-200"
             whileTap={{ scale: 0.9 }}
           >
-            {/* Pulse ring when listening */}
-            {isListening && (
-              <motion.div
-                className="absolute inset-0 rounded-full border-2 border-gold/30"
-                initial={{ scale: 1, opacity: 1 }}
-                animate={{ scale: 1.6, opacity: 0 }}
-                transition={{ duration: 1.2, repeat: Infinity }}
-              />
-            )}
             <svg
               width="18"
               height="18"
               viewBox="0 0 24 24"
               fill="none"
-              stroke={isListening ? '#C9A96E' : '#F5F0EB'}
+              stroke="#F5F0EB"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"

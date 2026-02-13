@@ -3,13 +3,12 @@
 import { motion } from 'framer-motion';
 import { useGLTF } from '@react-three/drei';
 import { useAppStore } from '@/store/app-store';
-import { productData } from '@/data/product-data';
+import { getProduct, DEFAULT_PRODUCT_ID } from '@/data/product-catalog';
 import OrbCanvas from '@/components/orb/orb-canvas';
 import { triggerHaptic } from '@/lib/haptics';
 
 // Start preloading the GLB model immediately when the app loads
-// This runs at module-level so the download begins on first page render
-useGLTF.preload(productData.modelPath);
+useGLTF.preload(getProduct(DEFAULT_PRODUCT_ID).modelPath);
 
 export default function LandingScreen() {
   const setScreen = useAppStore((s) => s.setScreen);

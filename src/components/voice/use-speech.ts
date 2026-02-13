@@ -93,7 +93,7 @@ export function useSpeech({
     };
 
     recognition.onerror = (event: Event & { error?: string }) => {
-      console.error('Speech recognition error:', event.error);
+      // Fail silently — "not-allowed" means mic permission denied, "aborted" is user cancel
       setIsListening(false);
     };
 
@@ -103,8 +103,9 @@ export function useSpeech({
 
     try {
       recognition.start();
-    } catch (err) {
-      console.error('Failed to start speech recognition:', err);
+    } catch {
+      // Speech recognition unavailable — fail silently
+      setIsListening(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSupported, lang, continuous]);
