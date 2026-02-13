@@ -112,8 +112,12 @@ export default function VoiceInput() {
         isStreamingRef.current = false;
 
         if (!result) {
-          setStreamingText("I didn't quite catch that — try asking about the frames, colour, or fit.");
+          const fallback = "I didn't quite catch that — try asking about the frames, colour, or fit.";
+          setStreamingText(fallback);
           setOrbState('idle');
+          // Speak the error so the user always hears a response
+          triggerHaptic('light');
+          await speak(fallback).catch(() => {});
           return;
         }
 
@@ -129,27 +133,32 @@ export default function VoiceInput() {
 
         // After TTS finishes: if the AI recommended a colourway (and/or frame),
         // automatically return to the product page so the user sees the result.
-        if (result.colourId || result.frameId) {
-          // Switch frame if a different one was recommended
+        // Guard: only auto-exit if we're still in conversation mode (user may
+        // have already tapped "View" or closed, which exits conversation).
+        const stillConversing = useAppStore.getState().isConversing;
+        if (stillConversing && (result.colourId || result.frameId)) {
           if (result.frameId && result.frameId !== activeProductId) {
             setActiveProductId(result.frameId);
           }
-
-          // Apply the recommended colourway if it exists in the universal pool
           if (result.colourId && getColourway(result.colourId)) {
             setActiveColourway(result.colourId);
           }
 
-          // Small delay so the user hears the last bit of speech, then exit
           await new Promise((r) => setTimeout(r, 600));
-          setIsConversing(false);
-          setStreamingText('');
+          // Re-check — user might have exited during the delay
+          if (useAppStore.getState().isConversing) {
+            setIsConversing(false);
+            setStreamingText('');
+          }
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') return;
-        setStreamingText("Something went wrong — try again.");
+        const errMsg = "Something went wrong — try again.";
+        setStreamingText(errMsg);
         setOrbState('idle');
         isStreamingRef.current = false;
+        // Speak the error so the user always hears a response
+        await speak(errMsg).catch(() => {});
       }
     },
     [fetchChatStream, setOrbState, setStreamingText, setRecommendedProductId, setAiRecommendedColourway, setAssistantMessage, activeProductId, setActiveProductId, setActiveColourway, setIsConversing],

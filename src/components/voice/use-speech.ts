@@ -6,7 +6,6 @@ interface UseSpeechOptions {
   onResult?: (transcript: string) => void;
   onInterim?: (transcript: string) => void;
   lang?: string;
-  continuous?: boolean;
 }
 
 interface UseSpeechReturn {
@@ -34,48 +33,38 @@ function isIOSSafari(): boolean {
   );
 }
 
-// Max recording duration in ms — auto-stops to prevent runaway recordings
-const MAX_RECORD_MS = 20_000;
-
-// ── Whisper-based recording fallback for iOS ───────────────────────────
+// ── iOS: MediaRecorder + Whisper API ────────────────────────────────────
+// Records audio while the user holds the button, then sends to Whisper for
+// transcription. No intermediate status messages — the UI shows "Listening..."
+// from the isListening state, and the final text appears seamlessly.
 function useWhisperFallback(
   onResult?: (transcript: string) => void,
-  onInterim?: (transcript: string) => void,
+  _onInterim?: (transcript: string) => void,
 ) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [interimTranscript, setInterimTranscript] = useState('');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track whether a stop was requested before getUserMedia resolved
   const wantStopRef = useRef(false);
-  // Track if getUserMedia is in progress (prevent double starts)
   const acquiringRef = useRef(false);
 
-  // Use refs for callbacks so the onstop closure always has the latest
   const onResultRef = useRef(onResult);
-  const onInterimRef = useRef(onInterim);
   useEffect(() => { onResultRef.current = onResult; }, [onResult]);
-  useEffect(() => { onInterimRef.current = onInterim; }, [onInterim]);
 
   const isSupported =
     typeof navigator !== 'undefined' &&
     !!navigator.mediaDevices?.getUserMedia;
 
-  // Shared stop-and-transcribe logic
   const finishRecording = useCallback(() => {
-    // Clear auto-stop timer
     if (autoStopRef.current) {
       clearTimeout(autoStopRef.current);
       autoStopRef.current = null;
     }
-
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== 'inactive') {
-      // onstop handler will do the transcription
       recorder.stop();
     }
     mediaRecorderRef.current = null;
@@ -83,24 +72,12 @@ function useWhisperFallback(
 
   const startListening = useCallback(() => {
     if (!isSupported) return;
-
-    // If already recording, stop it
-    if (mediaRecorderRef.current) {
-      finishRecording();
-      return;
-    }
-
-    // If getUserMedia is in progress, don't start again
+    if (mediaRecorderRef.current) { finishRecording(); return; }
     if (acquiringRef.current) return;
 
     wantStopRef.current = false;
-    setInterimTranscript('');
     chunksRef.current = [];
-
-    // Set listening immediately for UI feedback
     setIsListening(true);
-    setInterimTranscript('');
-    onInterimRef.current?.('');
     acquiringRef.current = true;
 
     navigator.mediaDevices
@@ -108,18 +85,15 @@ function useWhisperFallback(
       .then((stream) => {
         acquiringRef.current = false;
 
-        // If stop was requested while we were waiting for getUserMedia, abort
         if (wantStopRef.current) {
           stream.getTracks().forEach((t) => t.stop());
           setIsListening(false);
-          setInterimTranscript('');
           wantStopRef.current = false;
           return;
         }
 
         streamRef.current = stream;
 
-        // Pick a supported mime type — iOS Safari supports audio/mp4
         let mimeType = 'audio/mp4';
         if (typeof MediaRecorder !== 'undefined') {
           if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
@@ -135,7 +109,6 @@ function useWhisperFallback(
         try {
           recorder = new MediaRecorder(stream, { mimeType });
         } catch {
-          // If mimeType fails, try without options
           try {
             recorder = new MediaRecorder(stream);
             mimeType = recorder.mimeType || 'audio/mp4';
@@ -153,7 +126,6 @@ function useWhisperFallback(
         };
 
         recorder.onstop = async () => {
-          // Release the mic
           if (streamRef.current) {
             streamRef.current.getTracks().forEach((t) => t.stop());
             streamRef.current = null;
@@ -164,21 +136,15 @@ function useWhisperFallback(
 
           if (chunks.length === 0) {
             setIsListening(false);
-            setInterimTranscript('');
             return;
           }
 
           const audioBlob = new Blob(chunks, { type: mimeType });
 
-          // Show processing feedback (subtle)
-          setInterimTranscript('Processing...');
-          onInterimRef.current?.('Processing...');
-
+          // No status messages — just transcribe silently
           try {
             const ext = mimeType.includes('webm') ? 'webm' : 'm4a';
-            const file = new File([audioBlob], `recording.${ext}`, {
-              type: mimeType,
-            });
+            const file = new File([audioBlob], `recording.${ext}`, { type: mimeType });
             const formData = new FormData();
             formData.append('audio', file);
 
@@ -187,66 +153,44 @@ function useWhisperFallback(
               body: formData,
             });
 
-            if (!response.ok) {
-              const errBody = await response.text().catch(() => '');
-              console.error('Transcription error:', response.status, errBody);
-              throw new Error('Transcription failed');
-            }
+            if (!response.ok) throw new Error('Transcription failed');
 
             const data = await response.json();
             const text = data.text?.trim();
 
             if (text) {
               setTranscript(text);
-              setInterimTranscript('');
               onResultRef.current?.(text);
-            } else {
-              setInterimTranscript('');
             }
           } catch (err) {
             console.error('Whisper transcription error:', err);
-            setInterimTranscript('');
           }
 
           setIsListening(false);
         };
 
-        // Start recording — collect data every 500ms (iOS needs larger chunks)
         recorder.start(500);
-        setInterimTranscript('Listening...');
-        onInterimRef.current?.('Listening...');
 
-        // Auto-stop after MAX_RECORD_MS
-        autoStopRef.current = setTimeout(() => {
-          finishRecording();
-        }, MAX_RECORD_MS);
+        // Auto-stop after 20s to prevent runaway recordings
+        autoStopRef.current = setTimeout(() => finishRecording(), 20_000);
       })
       .catch((err) => {
         acquiringRef.current = false;
         console.error('getUserMedia error:', err);
         setIsListening(false);
-        setInterimTranscript('');
       });
   }, [isSupported, finishRecording]);
 
   const stopListening = useCallback(() => {
-    // If getUserMedia is still acquiring, flag for cancellation
     if (acquiringRef.current) {
       wantStopRef.current = true;
-      // Don't set isListening false yet — the getUserMedia callback will handle it
       return;
     }
-
     finishRecording();
-    // Don't set isListening false here — let onstop handle it after transcription
   }, [finishRecording]);
 
-  const resetTranscript = useCallback(() => {
-    setTranscript('');
-    setInterimTranscript('');
-  }, []);
+  const resetTranscript = useCallback(() => { setTranscript(''); }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (autoStopRef.current) clearTimeout(autoStopRef.current);
@@ -263,14 +207,15 @@ function useWhisperFallback(
     isListening,
     isSupported,
     transcript,
-    interimTranscript,
+    interimTranscript: '',
     startListening,
     stopListening,
     resetTranscript,
   };
 }
 
-// ── Web Speech API (Chrome, Android, etc.) ─────────────────────────────
+// ── Desktop: Web Speech API ─────────────────────────────────────────────
+// Real-time transcription — words appear as you speak.
 function useWebSpeech({
   onResult,
   onInterim,
@@ -279,17 +224,13 @@ function useWebSpeech({
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
-  const recognitionRef = useRef<ReturnType<typeof createRecognition> | null>(
-    null,
-  );
+  const recognitionRef = useRef<ReturnType<typeof createRecognition> | null>(null);
 
-  // Use refs for callbacks to prevent stale closures
   const onResultRef = useRef(onResult);
   const onInterimRef = useRef(onInterim);
   useEffect(() => { onResultRef.current = onResult; }, [onResult]);
   useEffect(() => { onInterimRef.current = onInterim; }, [onInterim]);
 
-  // Accumulate all speech across the session
   const accumulatedRef = useRef('');
 
   const isSupported =
@@ -306,7 +247,6 @@ function useWebSpeech({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const recognition = new (SpeechRecognition as any)();
     recognition.lang = lang;
-    // Use continuous mode so recognition keeps going while held
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
@@ -315,8 +255,6 @@ function useWebSpeech({
 
   const startListening = useCallback(() => {
     if (!isSupported) return;
-
-    // If already listening, do nothing
     if (recognitionRef.current) return;
 
     accumulatedRef.current = '';
@@ -324,18 +262,14 @@ function useWebSpeech({
     if (!recognition) return;
 
     recognitionRef.current = recognition;
-
     recognition.onstart = () => setIsListening(true);
 
-    // Track the latest interim text so we can deliver it if recognition ends
-    // without a final result (common on iOS Safari)
     let latestInterim = '';
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let finalSoFar = '';
       let interim = '';
 
-      // Iterate ALL results (not just from resultIndex) to build the full transcript
       for (let i = 0; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
@@ -348,7 +282,6 @@ function useWebSpeech({
       accumulatedRef.current = finalSoFar;
       latestInterim = interim;
 
-      // Show the full text so far (final + interim) as the live transcription
       const liveText = (finalSoFar + ' ' + interim).trim();
       if (liveText) {
         setInterimTranscript(liveText);
@@ -356,23 +289,13 @@ function useWebSpeech({
       }
     };
 
-    recognition.onerror = (event: Event) => {
-      const errorEvent = event as Event & { error?: string };
-      // Critical errors — give up
-      if (errorEvent.error === 'not-allowed' || errorEvent.error === 'service-not-allowed') {
-        setIsListening(false);
-        recognitionRef.current = null;
-        return;
-      }
-      // Benign errors (no-speech, audio-capture) — keep going, let user keep holding
+    recognition.onerror = () => {
+      // Silently handle errors — let the user keep holding
     };
 
     recognition.onend = () => {
       setIsListening(false);
 
-      // When recognition ends (user released button → stop() called),
-      // deliver the accumulated transcript. If no final results were received
-      // but we have interim text (common on short iOS sessions), use that.
       let finalText = accumulatedRef.current.trim();
       if (!finalText && latestInterim) {
         finalText = latestInterim.trim();
@@ -398,12 +321,7 @@ function useWebSpeech({
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        // Already stopped
-      }
-      // Don't null out the ref here — onend handler will do it after delivering results
+      try { recognitionRef.current.stop(); } catch { /* */ }
     }
   }, []);
 
@@ -432,116 +350,16 @@ function useWebSpeech({
   };
 }
 
-// ── Public hook: smart engine selection with auto-fallback ─────────────
-// On non-iOS: always Web Speech API (real-time transcription).
-// On iOS: tries Web Speech API first. If it doesn't fire `onstart` within
-// 1.5 s, it auto-falls back to Whisper and remembers for future calls.
+// ── Public hook ─────────────────────────────────────────────────────────
+// Simple: iOS → Whisper, everything else → Web Speech API.
+// No hybrid engines, no timers, no fallback logic.
 export function useSpeech(options: UseSpeechOptions = {}): UseSpeechReturn {
   const isIOS = isIOSSafari();
 
-  // Both hooks called unconditionally (Rules of Hooks)
+  // Both hooks always called (Rules of Hooks)
   const whisper = useWhisperFallback(options.onResult, options.onInterim);
   const webSpeech = useWebSpeech(options);
 
-  // ── Engine tracking refs (no re-render, survive across calls) ───────
-  // 'web' = known good, 'whisper' = known fallback, 'undecided' = first iOS attempt
-  const engineRef = useRef<'web' | 'whisper' | 'undecided'>(
-    isIOS ? 'undecided' : 'web',
-  );
-  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const webListeningRef = useRef(false);
-
-  // Keep a ref in sync with webSpeech.isListening so the timeout closure
-  // reads the live value instead of a stale snapshot.
-  useEffect(() => {
-    webListeningRef.current = webSpeech.isListening;
-  }, [webSpeech.isListening]);
-
-  // If Web Speech successfully fires onstart on iOS, lock in 'web' engine
-  useEffect(() => {
-    if (isIOS && webSpeech.isListening && engineRef.current === 'undecided') {
-      engineRef.current = 'web';
-      if (fallbackTimerRef.current) {
-        clearTimeout(fallbackTimerRef.current);
-        fallbackTimerRef.current = null;
-      }
-    }
-  }, [isIOS, webSpeech.isListening]);
-
-  // ── Unified startListening ──────────────────────────────────────────
-  const startListening = useCallback(() => {
-    // Clear any pending fallback
-    if (fallbackTimerRef.current) {
-      clearTimeout(fallbackTimerRef.current);
-      fallbackTimerRef.current = null;
-    }
-
-    const engine = engineRef.current;
-
-    // Known-good Web Speech (desktop or iOS that already passed the test)
-    if (engine === 'web') {
-      webSpeech.startListening();
-      return;
-    }
-
-    // Known Whisper device (iOS where Web Speech already failed)
-    if (engine === 'whisper') {
-      whisper.startListening();
-      return;
-    }
-
-    // ── 'undecided' (first iOS attempt) ──────────────────────────────
-    if (webSpeech.isSupported) {
-      webSpeech.startListening();
-
-      // Give Web Speech 1.5 s to fire onstart; if not, fall back
-      fallbackTimerRef.current = setTimeout(() => {
-        fallbackTimerRef.current = null;
-        if (!webListeningRef.current) {
-          engineRef.current = 'whisper';
-          webSpeech.stopListening();
-          whisper.startListening();
-        }
-      }, 1500);
-    } else {
-      engineRef.current = 'whisper';
-      whisper.startListening();
-    }
-  }, [webSpeech.startListening, webSpeech.stopListening, webSpeech.isSupported, whisper.startListening]);
-
-  // ── Unified stopListening ───────────────────────────────────────────
-  const stopListening = useCallback(() => {
-    if (fallbackTimerRef.current) {
-      clearTimeout(fallbackTimerRef.current);
-      fallbackTimerRef.current = null;
-    }
-    // Stop both — each is safe to call even when not active
-    webSpeech.stopListening();
-    whisper.stopListening();
-  }, [webSpeech.stopListening, whisper.stopListening]);
-
-  // ── Unified resetTranscript ─────────────────────────────────────────
-  const resetTranscript = useCallback(() => {
-    webSpeech.resetTranscript();
-    whisper.resetTranscript();
-  }, [webSpeech.resetTranscript, whisper.resetTranscript]);
-
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
-    };
-  }, []);
-
-  // Merge state — only one engine is active at a time, so `||` picks
-  // whichever has content (the inactive engine has empty strings).
-  return {
-    isListening: webSpeech.isListening || whisper.isListening,
-    isSupported: webSpeech.isSupported || whisper.isSupported,
-    transcript: webSpeech.transcript || whisper.transcript,
-    interimTranscript: webSpeech.interimTranscript || whisper.interimTranscript,
-    startListening,
-    stopListening,
-    resetTranscript,
-  };
+  if (isIOS) return whisper.isSupported ? whisper : webSpeech;
+  return webSpeech.isSupported ? webSpeech : whisper;
 }
