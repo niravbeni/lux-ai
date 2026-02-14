@@ -108,6 +108,14 @@ export default function ScannerScreen() {
         className="absolute inset-0 w-full h-full qr-scanner-fullscreen"
       />
 
+      {/* Top fade — blends camera into the iOS status bar / Dynamic Island */}
+      <div
+        className="absolute top-0 left-0 right-0 z-10 pointer-events-none"
+        style={{ height: 'max(60px, env(safe-area-inset-top, 0px) + 30px)' }}
+      >
+        <div className="w-full h-full bg-gradient-to-b from-black/80 to-transparent" />
+      </div>
+
       {/* Scan frame overlay — centered on screen */}
       {scanning && (
         <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none" style={{ paddingBottom: '20vh' }}>

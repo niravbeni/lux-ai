@@ -130,6 +130,14 @@ export default function ViewerHub() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
     >
+      {/* Top fade — blends into iOS status bar / Dynamic Island area */}
+      <div
+        className="absolute top-0 left-0 right-0 z-30 pointer-events-none"
+        style={{ height: 'max(50px, env(safe-area-inset-top, 0px) + 20px)' }}
+      >
+        <div className="w-full h-full bg-gradient-to-b from-background/90 to-transparent" />
+      </div>
+
       {/* ─── VIEW AREA ─── */}
       <div className="relative z-10 flex-1 w-full min-h-0">
 

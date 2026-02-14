@@ -6,7 +6,7 @@ import { useAppStore } from '@/store/app-store';
 import { useSpeech } from './use-speech';
 import { routeFromTranscript } from '@/lib/keyword-router';
 import { triggerHaptic } from '@/lib/haptics';
-import { speak, stopSpeaking } from '@/lib/tts';
+import { speak, stopSpeaking, warmUpSpeech } from '@/lib/tts';
 import { getProduct, getColourway } from '@/data/product-catalog';
 
 // Strip [FRAME:product-id] and [COLOUR:colourway-id] tags from text and extract ids
@@ -224,22 +224,11 @@ export default function VoiceInput() {
     (text: string) => {
       setTranscript(text);
 
-      // If in conversation mode, always send to GPT (but check keyword router for navigation first)
+      // If in conversation mode, always send to GPT.
+      // Never route away to colour-mode, fit-mode, or other sub-screens — the AI
+      // assistant should handle colour/fit topics conversationally and can recommend
+      // frames/colourways that auto-switch on the product page instead.
       if (isConversing) {
-        // Check if user wants to navigate somewhere
-        const route = routeFromTranscript(text);
-        if (route) {
-          triggerHaptic('medium');
-          setIsConversing(false);
-          setStreamingText('');
-          setTimeout(() => {
-            setScreen(route.screen);
-            setOrbState('idle');
-          }, 400);
-          return;
-        }
-
-        // Otherwise, send to GPT
         sendToChat(text);
         return;
       }
@@ -282,6 +271,9 @@ export default function VoiceInput() {
   // ── Press-and-hold mic handlers ────────────────────────────────────
   const handleMicDown = () => {
     triggerHaptic('light');
+
+    // Unlock speechSynthesis on iOS — must happen from a user gesture
+    warmUpSpeech();
 
     // If speaking, stop TTS first
     if (isSpeaking) {
@@ -395,9 +387,9 @@ export default function VoiceInput() {
           </motion.button>
         )}
 
-        {/* Hold-to-talk label */}
+        {/* Hold-to-talk label — "Listening" is already shown above the orb */}
         <p className="text-foreground/25 text-[10px] tracking-widest uppercase">
-          {isListening ? 'Listening…' : isSpeaking ? 'Speaking…' : 'Hold to talk'}
+          {isSpeaking ? 'Speaking…' : 'Hold to talk'}
         </p>
       </div>
     );
