@@ -35,7 +35,7 @@ export default function SaveModal() {
 
   return (
     <motion.div
-      className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden bg-[#0A0A0A]"
+      className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden bg-background"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

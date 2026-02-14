@@ -72,13 +72,20 @@ export default function AppShell() {
     screen === 'viewer-hub' || screen === 'details-mode' || screen === 'transition';
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-background">
+    <>
+      {/* ── Colour-morphing background ──────────────────────────────────
+          Rendered OUTSIDE the overflow-hidden content container so it is
+          a direct child of <body>. position:fixed + inset:0 now extends
+          to the full physical viewport on iOS (behind status bar and
+          Safari toolbar) without being clipped by overflow:hidden.       */}
       {showMorphBg && (
-        <div className="fixed inset-0 colour-morph-bg" style={{ zIndex: 0 }}>
+        <div
+          className="fixed inset-0 colour-morph-bg"
+          style={{ zIndex: 0, pointerEvents: 'none' }}
+        >
           <div className="colour-morph-blob-gold" />
-          {/* Edge fades — blend the colour-morph blobs into the flat
-              background colour so the iOS status bar and Safari toolbar
-              (which use the static theme-color) transition seamlessly. */}
+          {/* Edge fades — blend animated blobs into the flat background
+              colour so iOS bars transition seamlessly. */}
           <div
             className="absolute inset-x-0 top-0 pointer-events-none"
             style={{ zIndex: 2, height: '15%', background: 'linear-gradient(to bottom, var(--background) 30%, transparent 100%)' }}
@@ -90,16 +97,24 @@ export default function AppShell() {
         </div>
       )}
 
-      <AnimatePresence mode="wait">
-        {screen === 'landing' && <LandingScreen key="landing" />}
-        {screen === 'scanner' && <ScannerScreen key="scanner" />}
-        {screen === 'transition' && <TransitionScreen key="transition" />}
-        {screen === 'viewer-hub' && <ViewerHub key="viewer-hub" />}
-        {screen === 'colour-mode' && <ColourMode key="colour-mode" />}
-        {screen === 'fit-mode' && <FitMode key="fit-mode" />}
-        {screen === 'details-mode' && <DetailsMode key="details-mode" />}
-        {screen === 'save-modal' && <SaveModal key="save-modal" />}
-      </AnimatePresence>
-    </div>
+      {/* ── Content container ───────────────────────────────────────────
+          When the colour-morph bg is active the container is transparent
+          so the morph shows through. Otherwise it uses bg-background.   */}
+      <div
+        className={`relative w-full h-full overflow-hidden ${showMorphBg ? '' : 'bg-background'}`}
+        style={{ zIndex: 1 }}
+      >
+        <AnimatePresence mode="wait">
+          {screen === 'landing' && <LandingScreen key="landing" />}
+          {screen === 'scanner' && <ScannerScreen key="scanner" />}
+          {screen === 'transition' && <TransitionScreen key="transition" />}
+          {screen === 'viewer-hub' && <ViewerHub key="viewer-hub" />}
+          {screen === 'colour-mode' && <ColourMode key="colour-mode" />}
+          {screen === 'fit-mode' && <FitMode key="fit-mode" />}
+          {screen === 'details-mode' && <DetailsMode key="details-mode" />}
+          {screen === 'save-modal' && <SaveModal key="save-modal" />}
+        </AnimatePresence>
+      </div>
+    </>
   );
 }

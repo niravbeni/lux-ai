@@ -49,6 +49,20 @@ export default function RootLayout({
         <link rel="prefetch" href="/models/source/aviator.glb" crossOrigin="anonymous" />
       </head>
       <body className={`${geistSans.variable} antialiased`}>
+        {/* Full-viewport background — extends behind iOS bars regardless of
+            overflow:hidden / 100svh constraints on child containers.
+            Uses both the CSS variable (for consistency) and hardcoded
+            fallback (for before CSS loads). */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'var(--background, #27272a)',
+            zIndex: -1,
+            pointerEvents: 'none',
+          }}
+        />
         {children}
       </body>
     </html>

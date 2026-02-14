@@ -426,7 +426,7 @@ export default function ColourMode() {
         )}
 
         {cameraError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#0A0A0A]">
+          <div className="absolute inset-0 flex items-center justify-center bg-black">
             <div className="text-center px-8">
               <p className="text-foreground/50 text-sm mb-4">{cameraError}</p>
               <button onClick={() => setScreen('viewer-hub')} className="text-gold text-sm font-medium">
