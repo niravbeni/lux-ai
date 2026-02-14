@@ -33,7 +33,7 @@ export default function TransitionScreen() {
 
   return (
     <motion.div
-      className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#f0ede8]"
+      className="relative flex h-full w-full items-center justify-center overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -46,16 +46,16 @@ export default function TransitionScreen() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.5 }}
       >
-        <p className="text-[#C9A96E] text-sm tracking-[0.2em] uppercase mb-2">
+        <p className="text-gold text-sm tracking-[0.2em] uppercase mb-2">
           Recognised
         </p>
-        <p className="text-black/60 text-lg font-light">
+        <p className="text-foreground/70 text-lg font-light">
           Frame identified
         </p>
       </motion.div>
 
       {/* Subtle radial glow */}
-      <div className="absolute inset-0 bg-radial-[circle_at_center] from-[#C9A96E]/8 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-radial-[circle_at_center] from-gold/8 via-transparent to-transparent" />
     </motion.div>
   );
 }

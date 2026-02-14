@@ -69,7 +69,7 @@ export default function AppShell() {
   // on animated children would otherwise create a containing block that
   // clips the background to 100svh (doesn't extend behind iOS bars).
   const showMorphBg =
-    screen === 'viewer-hub' || screen === 'details-mode';
+    screen === 'viewer-hub' || screen === 'details-mode' || screen === 'transition';
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-background">
