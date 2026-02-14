@@ -143,22 +143,22 @@ canvas {
   animation-direction: alternate;
 }
 
-/* Teal / cyan glow — top right */
+/* Teal / cyan glow — top right, pulled inward so screen edges stay flat */
 .colour-morph-bg::before {
-  width: 70%;
-  height: 70%;
-  top: -5%;
-  right: -15%;
+  width: 60%;
+  height: 50%;
+  top: 12%;
+  right: -10%;
   background: radial-gradient(circle, rgba(50, 200, 210, 0.35), rgba(80, 220, 235, 0.15), transparent 70%);
   animation: morph-blob-1 8s ease-in-out infinite alternate;
 }
 
-/* Magenta / rose glow — bottom left */
+/* Magenta / rose glow — bottom left, pulled inward */
 .colour-morph-bg::after {
-  width: 60%;
-  height: 60%;
-  bottom: 0%;
-  left: -10%;
+  width: 50%;
+  height: 45%;
+  bottom: 15%;
+  left: -5%;
   background: radial-gradient(circle, rgba(210, 90, 150, 0.3), rgba(190, 70, 170, 0.12), transparent 70%);
   animation: morph-blob-2 10s ease-in-out infinite alternate;
 }
@@ -166,10 +166,10 @@ canvas {
 /* Gold / amber glow — centre */
 .colour-morph-blob-gold {
   position: absolute;
-  width: 55%;
-  height: 55%;
-  top: 20%;
-  left: 15%;
+  width: 50%;
+  height: 45%;
+  top: 25%;
+  left: 18%;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(201, 169, 110, 0.3), rgba(220, 195, 130, 0.1), transparent 70%);
   filter: blur(70px);

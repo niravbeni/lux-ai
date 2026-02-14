@@ -33,8 +33,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" style={{ background: '#18181B' }}>
       <head>
+        {/* Explicit theme-color for iOS Safari toolbar + status bar */}
+        <meta name="theme-color" content="#18181B" />
         {/* iOS Safari fullscreen + status bar */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

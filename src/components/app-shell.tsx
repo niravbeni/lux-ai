@@ -80,12 +80,12 @@ export default function AppShell() {
               background colour so the iOS status bar and Safari toolbar
               (which use the static theme-color) transition seamlessly. */}
           <div
-            className="absolute inset-x-0 top-0 h-24 pointer-events-none"
-            style={{ zIndex: 2, background: 'linear-gradient(to bottom, var(--background) 0%, transparent 100%)' }}
+            className="absolute inset-x-0 top-0 pointer-events-none"
+            style={{ zIndex: 2, height: '15%', background: 'linear-gradient(to bottom, var(--background) 30%, transparent 100%)' }}
           />
           <div
-            className="absolute inset-x-0 bottom-0 h-24 pointer-events-none"
-            style={{ zIndex: 2, background: 'linear-gradient(to top, var(--background) 0%, transparent 100%)' }}
+            className="absolute inset-x-0 bottom-0 pointer-events-none"
+            style={{ zIndex: 2, height: '15%', background: 'linear-gradient(to top, var(--background) 30%, transparent 100%)' }}
           />
         </div>
       )}
