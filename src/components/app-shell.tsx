@@ -81,18 +81,30 @@ export default function AppShell() {
       {showMorphBg && (
         <div
           className="fixed inset-0 colour-morph-bg"
-          style={{ zIndex: 0, pointerEvents: 'none' }}
+          style={{ zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}
         >
           <div className="colour-morph-blob-gold" />
-          {/* Edge fades — blend animated blobs into the flat background
-              colour so iOS bars transition seamlessly. */}
+          {/* Edge fades — tall solid-colour bands that completely mask
+              the animated blob glow at the screen edges so the iOS
+              status bar (top) and Safari toolbar (bottom) blend
+              seamlessly with the app background. 22% height with 55%
+              solid hold ≈ 100px on an iPhone 14 Pro — enough to cover
+              the Dynamic Island (~54px) and bottom toolbar (~80px). */}
           <div
             className="absolute inset-x-0 top-0 pointer-events-none"
-            style={{ zIndex: 2, height: '15%', background: 'linear-gradient(to bottom, var(--background) 30%, transparent 100%)' }}
+            style={{
+              zIndex: 2,
+              height: '22%',
+              background: 'linear-gradient(to bottom, var(--background) 55%, transparent 100%)',
+            }}
           />
           <div
             className="absolute inset-x-0 bottom-0 pointer-events-none"
-            style={{ zIndex: 2, height: '15%', background: 'linear-gradient(to top, var(--background) 30%, transparent 100%)' }}
+            style={{
+              zIndex: 2,
+              height: '22%',
+              background: 'linear-gradient(to top, var(--background) 55%, transparent 100%)',
+            }}
           />
         </div>
       )}

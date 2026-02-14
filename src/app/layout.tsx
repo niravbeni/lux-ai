@@ -24,7 +24,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#27272a',
+  themeColor: '#0e0e10',
 };
 
 export default function RootLayout({
@@ -33,10 +33,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" style={{ background: '#27272a' }}>
+    <html lang="en" style={{ background: '#0e0e10' }}>
       <head>
         {/* Explicit theme-color for iOS Safari toolbar + status bar */}
-        <meta name="theme-color" content="#27272a" />
+        <meta name="theme-color" content="#0e0e10" />
         {/* iOS Safari fullscreen + status bar */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -58,7 +58,7 @@ export default function RootLayout({
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'var(--background, #27272a)',
+            background: 'var(--background, #0e0e10)',
             zIndex: -1,
             pointerEvents: 'none',
           }}
