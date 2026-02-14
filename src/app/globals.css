@@ -224,19 +224,31 @@ canvas {
    QR SCANNER: full-screen camera, hide all library UI
    ============================ */
 
-/* Make the scanner container fill its parent */
-.qr-scanner-fullscreen {
+/* Force scanner container AND every child the library creates to fill the screen */
+.qr-scanner-fullscreen,
+.qr-scanner-fullscreen > * {
   position: absolute !important;
   inset: 0 !important;
-}
-
-/* Force the video element to fill the entire screen */
-.qr-scanner-fullscreen video {
-  object-fit: cover !important;
   width: 100% !important;
   height: 100% !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Video fills the entire area and crops to cover */
+.qr-scanner-fullscreen video {
+  object-fit: cover !important;
   position: absolute !important;
   inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
 }
 
 /* Hide ALL html5-qrcode built-in UI: shaded region, scan box, corners, borders */
@@ -247,14 +259,7 @@ canvas {
   visibility: hidden !important;
 }
 
-/* Kill the library's inner scan-box wrapper borders and outlines */
-.qr-scanner-fullscreen > div {
-  border: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-}
-
-/* The library wraps content in nested divs — kill all borders recursively */
+/* Kill inline styles on deeply nested library divs */
 .qr-scanner-fullscreen div[style] {
   border: none !important;
   box-shadow: none !important;

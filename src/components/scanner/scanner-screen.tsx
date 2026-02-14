@@ -56,7 +56,6 @@ export default function ScannerScreen() {
           {
             fps: 10,
             qrbox: { width: 220, height: 220 },
-            aspectRatio: 1,
           },
           (decodedText) => {
             if (mounted) handleScanSuccess(decodedText);
@@ -167,7 +166,8 @@ export default function ScannerScreen() {
 
       {/* Bottom UI — overlaid on camera */}
       <motion.div
-        className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-6 pb-12 pt-8 px-6 safe-bottom"
+        className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-6 pt-8 px-6"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 3rem)' }}
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
