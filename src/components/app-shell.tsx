@@ -76,6 +76,17 @@ export default function AppShell() {
       {showMorphBg && (
         <div className="fixed inset-0 colour-morph-bg" style={{ zIndex: 0 }}>
           <div className="colour-morph-blob-gold" />
+          {/* Edge fades — blend the colour-morph blobs into the flat
+              background colour so the iOS status bar and Safari toolbar
+              (which use the static theme-color) transition seamlessly. */}
+          <div
+            className="absolute inset-x-0 top-0 h-24 pointer-events-none"
+            style={{ zIndex: 2, background: 'linear-gradient(to bottom, var(--background) 0%, transparent 100%)' }}
+          />
+          <div
+            className="absolute inset-x-0 bottom-0 h-24 pointer-events-none"
+            style={{ zIndex: 2, background: 'linear-gradient(to top, var(--background) 0%, transparent 100%)' }}
+          />
         </div>
       )}
 
