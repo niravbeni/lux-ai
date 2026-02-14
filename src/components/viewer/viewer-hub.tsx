@@ -183,7 +183,10 @@ export default function ViewerHub() {
           </Canvas>
 
           {/* Product name + colourway pills */}
-          <div className="absolute top-6 left-0 right-0 flex flex-col items-center gap-2 safe-top z-20">
+          <div
+            className="absolute left-0 right-0 flex flex-col items-center gap-2 z-20"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+          >
             <div className="flex items-center gap-2">
               {/* Back arrow — go to previous frame */}
               {previousProductId && previousProductId !== activeProductId && (
@@ -277,7 +280,8 @@ export default function ViewerHub() {
           {/* Close button */}
           <button
             onClick={handleExitConversation}
-            className="absolute top-6 right-6 safe-top z-30 h-8 w-8 rounded-full bg-white/5 backdrop-blur-md border border-white/5 text-foreground/40 hover:text-foreground/70 transition-colors"
+            className="absolute right-6 z-30 h-8 w-8 rounded-full bg-white/5 backdrop-blur-md border border-white/5 text-foreground/40 hover:text-foreground/70 transition-colors"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
           >
             <svg
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"

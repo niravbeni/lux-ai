@@ -74,46 +74,26 @@ export default function AppShell() {
   return (
     <>
       {/* ── Colour-morphing background ──────────────────────────────────
-          Rendered OUTSIDE the overflow-hidden content container so it is
-          a direct child of <body>. position:fixed + inset:0 now extends
-          to the full physical viewport on iOS (behind status bar and
-          Safari toolbar) without being clipped by overflow:hidden.       */}
+          position:fixed + inset:0 extends to the FULL physical viewport
+          on iOS, bleeding behind the status bar and Safari toolbar for
+          an immersive feel.  No edge-fades — the blobs can glow
+          naturally under the translucent iOS chrome.                     */}
       {showMorphBg && (
         <div
           className="fixed inset-0 colour-morph-bg"
-          style={{ zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}
+          style={{ zIndex: 0, pointerEvents: 'none' }}
         >
           <div className="colour-morph-blob-gold" />
-          {/* Edge fades — tall solid-colour bands that completely mask
-              the animated blob glow at the screen edges so the iOS
-              status bar (top) and Safari toolbar (bottom) blend
-              seamlessly with the app background. 22% height with 55%
-              solid hold ≈ 100px on an iPhone 14 Pro — enough to cover
-              the Dynamic Island (~54px) and bottom toolbar (~80px). */}
-          <div
-            className="absolute inset-x-0 top-0 pointer-events-none"
-            style={{
-              zIndex: 2,
-              height: '22%',
-              background: 'linear-gradient(to bottom, var(--background) 55%, transparent 100%)',
-            }}
-          />
-          <div
-            className="absolute inset-x-0 bottom-0 pointer-events-none"
-            style={{
-              zIndex: 2,
-              height: '22%',
-              background: 'linear-gradient(to top, var(--background) 55%, transparent 100%)',
-            }}
-          />
         </div>
       )}
 
       {/* ── Content container ───────────────────────────────────────────
-          When the colour-morph bg is active the container is transparent
-          so the morph shows through. Otherwise it uses bg-background.   */}
+          fixed inset-0 = covers the full physical viewport so the app
+          fills the entire browser window (including behind iOS bars).
+          Individual screens use safe-area-inset-* to keep text/buttons
+          visible and not clipped by the iOS system chrome.              */}
       <div
-        className={`relative w-full h-full overflow-hidden ${showMorphBg ? '' : 'bg-background'}`}
+        className={`fixed inset-0 overflow-hidden ${showMorphBg ? '' : 'bg-background'}`}
         style={{ zIndex: 1 }}
       >
         <AnimatePresence mode="wait">

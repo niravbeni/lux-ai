@@ -127,8 +127,6 @@ canvas {
 
 .colour-morph-bg {
   background: var(--background);
-  overflow: hidden;           /* clip blurred blobs at viewport edges */
-  isolation: isolate;         /* reliable stacking for edge-fade layers */
 }
 
 /* Three colour blobs — orb-inspired glows on dark background */
@@ -144,33 +142,33 @@ canvas {
   animation-direction: alternate;
 }
 
-/* Teal / cyan glow — top right, well inward from edges */
+/* Teal / cyan glow — top right */
 .colour-morph-bg::before {
-  width: 55%;
-  height: 40%;
-  top: 22%;
-  right: 0%;
+  width: 60%;
+  height: 50%;
+  top: 10%;
+  right: -10%;
   background: radial-gradient(circle, rgba(50, 200, 210, 0.35), rgba(80, 220, 235, 0.15), transparent 70%);
   animation: morph-blob-1 8s ease-in-out infinite alternate;
 }
 
-/* Magenta / rose glow — bottom left, well inward from edges */
+/* Magenta / rose glow — bottom left */
 .colour-morph-bg::after {
-  width: 45%;
-  height: 35%;
-  bottom: 25%;
-  left: 5%;
+  width: 50%;
+  height: 45%;
+  bottom: 10%;
+  left: -5%;
   background: radial-gradient(circle, rgba(210, 90, 150, 0.3), rgba(190, 70, 170, 0.12), transparent 70%);
   animation: morph-blob-2 10s ease-in-out infinite alternate;
 }
 
-/* Gold / amber glow — centre, well away from edges */
+/* Gold / amber glow — centre */
 .colour-morph-blob-gold {
   position: absolute;
-  width: 45%;
-  height: 35%;
-  top: 30%;
-  left: 22%;
+  width: 50%;
+  height: 45%;
+  top: 22%;
+  left: 18%;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(201, 169, 110, 0.3), rgba(220, 195, 130, 0.1), transparent 70%);
   filter: blur(70px);
