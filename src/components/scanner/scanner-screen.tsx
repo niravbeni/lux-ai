@@ -56,6 +56,7 @@ export default function ScannerScreen() {
           {
             fps: 10,
             qrbox: { width: 220, height: 220 },
+            aspectRatio: 1,
           },
           (decodedText) => {
             if (mounted) handleScanSuccess(decodedText);
@@ -95,22 +96,13 @@ export default function ScannerScreen() {
 
   return (
     <motion.div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        zIndex: 50,
-        overflow: 'hidden',
-        background: '#000',
-      }}
+      className="relative h-full w-full overflow-hidden bg-black"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4 }}
     >
-      {/* Camera feed — absolute full-screen */}
+      {/* Camera feed — fills the entire screen */}
       <div
         id="qr-scanner-region"
         className="absolute inset-0 w-full h-full qr-scanner-fullscreen"
@@ -164,10 +156,10 @@ export default function ScannerScreen() {
         </div>
       )}
 
-      {/* Bottom UI — overlaid on camera */}
+      {/* Bottom UI — overlaid on camera, no gradient */}
       <motion.div
-        className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-6 pt-8 px-6"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 3rem)' }}
+        className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-5 px-6"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.5rem)' }}
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
