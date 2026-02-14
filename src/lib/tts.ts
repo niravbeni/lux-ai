@@ -10,8 +10,6 @@ let pendingResolve: (() => void) | null = null;
 // Interval that calls speechSynthesis.resume() — iOS Safari silently pauses
 // long utterances and needs periodic nudging.
 let resumeTimer: ReturnType<typeof setInterval> | null = null;
-// Whether speechSynthesis has been warmed up with a user gesture
-let synthWarmedUp = false;
 
 function setPlaying(active: boolean) {
   const { setIsSpeaking, setOrbState } = useAppStore.getState();
@@ -24,22 +22,6 @@ function clearResumeTimer() {
     clearInterval(resumeTimer);
     resumeTimer = null;
   }
-}
-
-/**
- * Call this from a direct user gesture (e.g., mic button down) to unlock
- * speechSynthesis on iOS Safari.  iOS requires the very first speak() to
- * originate from a user-initiated event; after that it works from any context.
- */
-export function warmUpSpeech(): void {
-  if (synthWarmedUp) return;
-  synthWarmedUp = true;
-  if (typeof window === 'undefined' || !window.speechSynthesis) return;
-
-  // Silent utterance to unlock the speech engine on iOS
-  const silent = new SpeechSynthesisUtterance('');
-  silent.volume = 0;
-  window.speechSynthesis.speak(silent);
 }
 
 // ── Browser speechSynthesis fallback ──────────────────────────────────
@@ -58,12 +40,7 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
 
-    // Try to get voices — on iOS they may load asynchronously
-    let voices = synth.getVoices();
-    if (voices.length === 0 && synth.onvoiceschanged !== undefined) {
-      // Voices not ready yet — speak with default voice
-      voices = [];
-    }
+    const voices = synth.getVoices();
     const preferred = voices.find(
       (v) =>
         v.lang.startsWith('en') &&
@@ -85,12 +62,7 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
       if (id === speakId) setPlaying(true);
     };
     utterance.onend = done;
-    utterance.onerror = (e) => {
-      // On iOS, 'interrupted' errors are normal when a new utterance replaces
-      // the old one — don't treat them as failures.
-      console.warn('[TTS fallback] speechSynthesis error:', e);
-      done();
-    };
+    utterance.onerror = done;
 
     pendingResolve = resolve;
     synth.speak(utterance);
@@ -105,15 +77,6 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
         synth.resume();
       }
     }, 3000);
-
-    // Safety: if the utterance hasn't started within 2 seconds, it was
-    // likely silently dropped (iOS quirk).  Resolve so callers aren't stuck.
-    setTimeout(() => {
-      if (id === speakId && !synth.speaking && pendingResolve === resolve) {
-        console.warn('[TTS fallback] speechSynthesis utterance did not start — resolving.');
-        done();
-      }
-    }, 2000);
   });
 }
 
@@ -201,6 +164,20 @@ export async function speak(text: string): Promise<void> {
       await speakWithBrowser(text, id);
     }
   }
+}
+
+// Call from a user-gesture handler (e.g. onPointerDown) to "unlock"
+// speechSynthesis on iOS Safari — iOS requires a user-initiated speak()
+// before allowing async speaks.  Without this, the fallback TTS is silent.
+export function warmUpTTS(): void {
+  if (typeof window === 'undefined') return;
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+  // Speak a nearly-silent space character at max rate — completes instantly.
+  const u = new SpeechSynthesisUtterance(' ');
+  u.volume = 0.01;
+  u.rate = 10;
+  synth.speak(u);
 }
 
 export function stopSpeaking(): void {

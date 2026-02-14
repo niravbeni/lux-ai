@@ -174,6 +174,15 @@ export function getColourway(id: string): import('@/store/app-store').Colourway 
   return cwMap.get(id);
 }
 
+/** Register a dynamically created colourway (e.g. from AI recommendation) */
+export function registerColourway(cw: import('@/store/app-store').Colourway): void {
+  if (!cwMap.has(cw.id)) {
+    cwMap.set(cw.id, cw);
+    // Also add to the exported array
+    allColourways.push(cw);
+  }
+}
+
 // ── Backward-compatible re-exports ──────────────────────────────────────────
 // Many components still import { productData, colourways } from '@/data/product-data'
 // These re-exports ensure nothing breaks during migration.

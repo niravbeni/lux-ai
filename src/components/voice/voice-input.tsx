@@ -6,20 +6,49 @@ import { useAppStore } from '@/store/app-store';
 import { useSpeech } from './use-speech';
 import { routeFromTranscript } from '@/lib/keyword-router';
 import { triggerHaptic } from '@/lib/haptics';
-import { speak, stopSpeaking, warmUpSpeech } from '@/lib/tts';
-import { getProduct, getColourway } from '@/data/product-catalog';
+import { speak, stopSpeaking, warmUpTTS } from '@/lib/tts';
+import { getProduct, getColourway, registerColourway } from '@/data/product-catalog';
 
-// Strip [FRAME:product-id] and [COLOUR:colourway-id] tags from text and extract ids
-function parseTags(text: string): { clean: string; frameId: string | null; colourId: string | null } {
+// Strip [FRAME:product-id] and [COLOUR:...] tags from text and extract ids.
+// Supports both existing colourway IDs and custom colours:
+//   [COLOUR:havana]                → existing id lookup
+//   [COLOUR:Navy Blue|#1a237e]     → dynamically created colourway
+function parseTags(text: string): {
+  clean: string;
+  frameId: string | null;
+  colourId: string | null;
+  customColour: { name: string; hex: string } | null;
+} {
   const frameMatch = text.match(/\[FRAME:([a-z0-9-]+)\]/i);
-  const colourMatch = text.match(/\[COLOUR:([a-z0-9-]+)\]/i);
+  const colourMatch = text.match(/\[COLOUR:([^\]]+)\]/i);
+
+  let colourId: string | null = null;
+  let customColour: { name: string; hex: string } | null = null;
+
+  if (colourMatch) {
+    const val = colourMatch[1];
+    if (val.includes('|')) {
+      // Custom colour: "Navy Blue|#1a237e"
+      const [name, hex] = val.split('|').map((s) => s.trim());
+      if (name && hex && /^#[0-9a-f]{3,8}$/i.test(hex)) {
+        const id = name.toLowerCase().replace(/\s+/g, '-');
+        colourId = id;
+        customColour = { name, hex };
+      }
+    } else {
+      // Existing colourway id
+      colourId = val;
+    }
+  }
+
   return {
     clean: text
       .replace(/\s*\[FRAME:[a-z0-9-]+\]/gi, '')
-      .replace(/\s*\[COLOUR:[a-z0-9-]+\]/gi, '')
+      .replace(/\s*\[COLOUR:[^\]]+\]/gi, '')
       .trim(),
     frameId: frameMatch ? frameMatch[1] : null,
-    colourId: colourMatch ? colourMatch[1] : null,
+    colourId,
+    customColour,
   };
 }
 
@@ -45,14 +74,20 @@ export default function VoiceInput() {
   const abortRef = useRef<AbortController | null>(null);
 
   // ── Core fetch + stream helper ───────────────────────────────────────
-  // Returns the full cleaned text and optional frameId.
+  type ChatResult = {
+    clean: string;
+    frameId: string | null;
+    colourId: string | null;
+    customColour: { name: string; hex: string } | null;
+  };
+
   const fetchChatStream = useCallback(
     async (
       userText: string,
       controller: AbortController,
       /** Called with each incremental chunk of cleaned text */
       onChunk: (cleanSoFar: string) => void,
-    ): Promise<{ clean: string; frameId: string | null; colourId: string | null } | null> => {
+    ): Promise<ChatResult | null> => {
       addChatMessage('user', userText);
       const chatHistory = useAppStore.getState().chatHistory;
 
@@ -84,9 +119,9 @@ export default function VoiceInput() {
         onChunk(parseTags(fullText).clean);
       }
 
-      const { clean, frameId, colourId } = parseTags(fullText);
+      const { clean, frameId, colourId, customColour } = parseTags(fullText);
       addChatMessage('assistant', clean);
-      return { clean, frameId, colourId };
+      return { clean, frameId, colourId, customColour };
     },
     [activeProductId, addChatMessage],
   );
@@ -123,6 +158,17 @@ export default function VoiceInput() {
 
         setAssistantMessage(result.clean);
         if (result.frameId) setRecommendedProductId(result.frameId);
+
+        // Register dynamically created colourway if needed
+        if (result.customColour && result.colourId) {
+          registerColourway({
+            id: result.colourId,
+            name: result.customColour.name,
+            color: result.customColour.hex,
+            metalness: 0.3,
+            roughness: 0.3,
+          });
+        }
         if (result.colourId) setAiRecommendedColourway(result.colourId);
 
         // Calm the orb while TTS audio is being fetched —
@@ -198,6 +244,17 @@ export default function VoiceInput() {
 
         setAssistantMessage(result.clean);
         if (result.frameId) setRecommendedProductId(result.frameId);
+
+        // Register dynamically created colourway if needed
+        if (result.customColour && result.colourId) {
+          registerColourway({
+            id: result.colourId,
+            name: result.customColour.name,
+            color: result.customColour.hex,
+            metalness: 0.3,
+            roughness: 0.3,
+          });
+        }
         if (result.colourId) setAiRecommendedColourway(result.colourId);
 
         // Auto-apply colourway and/or frame switch in text mode too
@@ -224,10 +281,10 @@ export default function VoiceInput() {
     (text: string) => {
       setTranscript(text);
 
-      // If in conversation mode, always send to GPT.
-      // Never route away to colour-mode, fit-mode, or other sub-screens — the AI
-      // assistant should handle colour/fit topics conversationally and can recommend
-      // frames/colourways that auto-switch on the product page instead.
+      // If in conversation mode, send everything to GPT.
+      // Do NOT use keyword router to navigate to colour-mode / fit-mode —
+      // the user should stay in voice chat.  The AI can recommend colours
+      // and frames via tags, with buttons shown in the orb overlay.
       if (isConversing) {
         sendToChat(text);
         return;
@@ -272,8 +329,9 @@ export default function VoiceInput() {
   const handleMicDown = () => {
     triggerHaptic('light');
 
-    // Unlock speechSynthesis on iOS — must happen from a user gesture
-    warmUpSpeech();
+    // Warm up browser TTS on this user gesture — iOS Safari requires
+    // a user-initiated speak() before allowing async speaks later.
+    warmUpTTS();
 
     // If speaking, stop TTS first
     if (isSpeaking) {
