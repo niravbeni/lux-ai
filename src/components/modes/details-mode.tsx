@@ -29,11 +29,6 @@ export default function DetailsMode() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4 }}
     >
-      {/* Colour-morphing background — same as product page */}
-      <div className="!fixed inset-0 colour-morph-bg z-0">
-        <div className="colour-morph-blob-gold" />
-      </div>
-
       {/* Scrollable content */}
       <div
         className="relative z-10 flex-1 overflow-y-auto px-8 pt-16 pb-32 safe-top"

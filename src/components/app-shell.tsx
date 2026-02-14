@@ -63,8 +63,22 @@ export default function AppShell() {
     }
   }, [activeProductId]);
 
+  // Show the colour-morphing background on screens that need it.
+  // Placed here (outside AnimatePresence / motion.div) so `position: fixed`
+  // works relative to the viewport — framer-motion's will-change:transform
+  // on animated children would otherwise create a containing block that
+  // clips the background to 100svh (doesn't extend behind iOS bars).
+  const showMorphBg =
+    screen === 'viewer-hub' || screen === 'details-mode';
+
   return (
     <div className="relative w-full h-full overflow-hidden bg-background">
+      {showMorphBg && (
+        <div className="fixed inset-0 colour-morph-bg" style={{ zIndex: 0 }}>
+          <div className="colour-morph-blob-gold" />
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         {screen === 'landing' && <LandingScreen key="landing" />}
         {screen === 'scanner' && <ScannerScreen key="scanner" />}

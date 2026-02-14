@@ -130,11 +130,6 @@ export default function ViewerHub() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
     >
-      {/* Colour-morphing background — fixed so it extends behind iOS bars */}
-      <div className="!fixed inset-0 colour-morph-bg z-0">
-        <div className="colour-morph-blob-gold" />
-      </div>
-
       {/* ─── VIEW AREA ─── */}
       <div className="relative z-10 flex-1 w-full min-h-0">
 

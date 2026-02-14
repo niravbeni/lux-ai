@@ -96,7 +96,7 @@ export default function ScannerScreen() {
 
   return (
     <motion.div
-      className="relative h-full w-full overflow-hidden bg-black"
+      className="fixed inset-0 overflow-hidden bg-black"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

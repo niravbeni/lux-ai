@@ -7,6 +7,9 @@ let speakId = 0;
 // Resolve function for the current speak() promise — allows stopSpeaking()
 // to unblock any code awaiting speak() (e.g., sendToChat auto-exit logic).
 let pendingResolve: (() => void) | null = null;
+// Interval that calls speechSynthesis.resume() — iOS Safari silently pauses
+// long utterances and needs periodic nudging.
+let resumeTimer: ReturnType<typeof setInterval> | null = null;
 
 function setPlaying(active: boolean) {
   const { setIsSpeaking, setOrbState } = useAppStore.getState();
@@ -14,11 +17,14 @@ function setPlaying(active: boolean) {
   setOrbState(active ? 'speaking' : 'idle');
 }
 
+function clearResumeTimer() {
+  if (resumeTimer !== null) {
+    clearInterval(resumeTimer);
+    resumeTimer = null;
+  }
+}
+
 // ── Browser speechSynthesis fallback ──────────────────────────────────
-// NOTE: Do NOT call speechSynthesis.cancel() here — the main speak()
-// function already cancels before reaching this fallback.  Calling
-// cancel() immediately before speak() silently drops the utterance on
-// Chrome and some WebKit browsers.
 function speakWithBrowser(text: string, id: number): Promise<void> {
   return new Promise<void>((resolve) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
@@ -27,12 +33,14 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
       return;
     }
 
+    const synth = window.speechSynthesis;
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
 
-    const voices = window.speechSynthesis.getVoices();
+    const voices = synth.getVoices();
     const preferred = voices.find(
       (v) =>
         v.lang.startsWith('en') &&
@@ -43,22 +51,32 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
     );
     if (preferred) utterance.voice = preferred;
 
-    utterance.onstart = () => {
-      if (id === speakId) setPlaying(true);
-    };
-    utterance.onend = () => {
-      if (id === speakId) setPlaying(false);
-      pendingResolve = null;
-      resolve();
-    };
-    utterance.onerror = () => {
+    const done = () => {
+      clearResumeTimer();
       if (id === speakId) setPlaying(false);
       pendingResolve = null;
       resolve();
     };
 
+    utterance.onstart = () => {
+      if (id === speakId) setPlaying(true);
+    };
+    utterance.onend = done;
+    utterance.onerror = done;
+
     pendingResolve = resolve;
-    window.speechSynthesis.speak(utterance);
+    synth.speak(utterance);
+
+    // iOS Safari / Chrome workaround: the browser can silently pause
+    // speechSynthesis after ~15 s.  Periodically call resume() to keep it alive.
+    clearResumeTimer();
+    resumeTimer = setInterval(() => {
+      if (!synth.speaking) {
+        clearResumeTimer();
+      } else {
+        synth.resume();
+      }
+    }, 3000);
   });
 }
 
@@ -72,9 +90,17 @@ export async function speak(text: string): Promise<void> {
     currentAudio.pause();
     currentAudio = null;
   }
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
+
+  // Only cancel speechSynthesis if it's actually active — calling cancel()
+  // when idle can break subsequent speaks on iOS Safari.
+  const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+  if (synth?.speaking || synth?.pending) {
+    synth.cancel();
+    // iOS needs a brief tick after cancel() before a new speak() will work
+    await new Promise((r) => setTimeout(r, 80));
   }
+  clearResumeTimer();
+
   if (pendingResolve) {
     pendingResolve();
     pendingResolve = null;
@@ -146,9 +172,11 @@ export function stopSpeaking(): void {
     currentAudio.pause();
     currentAudio = null;
   }
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
+  const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+  if (synth?.speaking || synth?.pending) {
+    synth.cancel();
   }
+  clearResumeTimer();
   // Resolve any pending speak() promise so callers (e.g., sendToChat) don't hang
   if (pendingResolve) {
     pendingResolve();
