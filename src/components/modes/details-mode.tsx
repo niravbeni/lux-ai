@@ -32,8 +32,7 @@ export default function DetailsMode() {
       {/* Scrollable content */}
       <div
         className="relative z-10 flex-1 overflow-y-auto px-8 pb-32"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}
-        style={{ scrollbarWidth: 'none' }}
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4rem)', scrollbarWidth: 'none' }}
       >
         <div className="flex flex-col items-center text-center space-y-8 max-w-sm mx-auto">
 
