@@ -71,13 +71,16 @@ export default function AppShell() {
   const showMorphBg =
     screen === 'viewer-hub' || screen === 'details-mode' || screen === 'transition';
 
+  // Scanner is rendered in its own full-viewport layer (z-index 50)
+  // so nothing (overflow:hidden, stacking contexts, etc.) can clip it.
+  const isScanner = screen === 'scanner';
+
   return (
     <>
       {/* ── Colour-morphing background ──────────────────────────────────
           position:fixed + inset:0 extends to the FULL physical viewport
           on iOS, bleeding behind the status bar and Safari toolbar for
-          an immersive feel.  No edge-fades — the blobs can glow
-          naturally under the translucent iOS chrome.                     */}
+          an immersive feel.                                              */}
       {showMorphBg && (
         <div
           className="fixed inset-0 colour-morph-bg"
@@ -86,6 +89,13 @@ export default function AppShell() {
           <div className="colour-morph-blob-gold" />
         </div>
       )}
+
+      {/* ── Scanner — own full-viewport layer ─────────────────────────── */}
+      <AnimatePresence>
+        {isScanner && (
+          <ScannerScreen key="scanner" />
+        )}
+      </AnimatePresence>
 
       {/* ── Content container ───────────────────────────────────────────
           fixed inset-0 = covers the full physical viewport so the app
@@ -98,7 +108,6 @@ export default function AppShell() {
       >
         <AnimatePresence mode="wait">
           {screen === 'landing' && <LandingScreen key="landing" />}
-          {screen === 'scanner' && <ScannerScreen key="scanner" />}
           {screen === 'transition' && <TransitionScreen key="transition" />}
           {screen === 'viewer-hub' && <ViewerHub key="viewer-hub" />}
           {screen === 'colour-mode' && <ColourMode key="colour-mode" />}

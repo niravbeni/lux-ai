@@ -96,7 +96,16 @@ export default function ScannerScreen() {
 
   return (
     <motion.div
-      className="absolute inset-0 overflow-hidden bg-black"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 50,
+        overflow: 'hidden',
+        background: '#000',
+      }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -156,9 +165,9 @@ export default function ScannerScreen() {
         </div>
       )}
 
-      {/* Bottom UI — overlaid on camera with gradient backdrop */}
+      {/* Bottom UI — overlaid on camera */}
       <motion.div
-        className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-6 pb-12 pt-16 px-6 safe-bottom bg-gradient-to-t from-black/95 via-black/70 to-transparent"
+        className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-6 pb-12 pt-8 px-6 safe-bottom"
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
