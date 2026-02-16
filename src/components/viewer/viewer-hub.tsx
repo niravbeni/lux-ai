@@ -284,7 +284,8 @@ export default function ViewerHub() {
                     exit={{ opacity: 0, x: -8 }}
                     transition={{ duration: 0.25 }}
                     onClick={() => goToFrame('prev')}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-foreground/40 hover:text-foreground/70 hover:bg-white/10 transition-all active:scale-90"
+                    className="absolute left-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-foreground/40 hover:text-foreground/70 hover:bg-white/10 transition-all active:scale-90"
+                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="15 18 9 12 15 6" />
@@ -303,7 +304,8 @@ export default function ViewerHub() {
                     exit={{ opacity: 0, x: 8 }}
                     transition={{ duration: 0.25 }}
                     onClick={() => goToFrame('next')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-foreground/40 hover:text-foreground/70 hover:bg-white/10 transition-all active:scale-90"
+                    className="absolute right-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-foreground/40 hover:text-foreground/70 hover:bg-white/10 transition-all active:scale-90"
+                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="9 18 15 12 9 6" />
