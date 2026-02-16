@@ -377,7 +377,7 @@ export default function ViewerHub() {
             )}
 
             {/* "View recommended" pill — shown during conversation when AI suggests a new frame */}
-            {isConversing && recommendedProductId && recommendedProductId !== activeProductId && !frameHistory.includes(recommendedProductId) && (
+            {isConversing && recommendedProductId && recommendedProductId !== activeProductId && (
               <motion.button
                 onClick={handleViewRecommended}
                 initial={{ opacity: 0, y: -4 }}
@@ -442,25 +442,23 @@ export default function ViewerHub() {
             className="w-full h-full"
           />
 
-          {/* Close button */}
+          {/* Close button — just the X, no circle */}
           <button
             onClick={handleExitConversation}
-            className="absolute right-6 z-30 h-8 w-8 rounded-full bg-white/5 backdrop-blur-md border border-white/5 text-foreground/40 hover:text-foreground/70 transition-colors"
-            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+            className="absolute right-4 z-30 flex h-12 w-12 items-center justify-center text-foreground/40 hover:text-foreground/70 transition-colors active:scale-90"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
           >
             <svg
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-              width="10"
-              height="10"
-              viewBox="0 0 12 12"
-              overflow="visible"
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.4"
+              strokeWidth="2"
               strokeLinecap="round"
             >
-              <line x1="2" y1="2" x2="10" y2="10" />
-              <line x1="10" y1="2" x2="2" y2="10" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+              <line x1="18" y1="6" x2="6" y2="18" />
             </svg>
           </button>
 

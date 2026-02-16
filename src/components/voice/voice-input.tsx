@@ -19,8 +19,8 @@ function parseTags(text: string): {
   colourId: string | null;
   customColour: { name: string; hex: string } | null;
 } {
-  const frameMatch = text.match(/\[FRAME:([a-z0-9-]+)\]/i);
-  const colourMatch = text.match(/\[COLOUR:([^\]]+)\]/i);
+  const frameMatch = text.match(/\[FRAME:\s*([a-z0-9-]+)\s*\]/i);
+  const colourMatch = text.match(/\[COLOUR:\s*([^\]]+?)\s*\]/i);
 
   let colourId: string | null = null;
   let customColour: { name: string; hex: string } | null = null;
@@ -189,7 +189,9 @@ export default function VoiceInput() {
         // have already tapped "View" or closed, which exits conversation).
         const stillConversing = useAppStore.getState().isConversing;
         if (stillConversing && (result.colourId || result.frameId)) {
-          if (result.frameId && result.frameId !== activeProductId) {
+          // Use fresh store read — activeProductId may have changed during TTS
+          const currentProductId = useAppStore.getState().activeProductId;
+          if (result.frameId && result.frameId !== currentProductId) {
             setActiveProductId(result.frameId);
           }
           if (result.colourId && getColourway(result.colourId)) {

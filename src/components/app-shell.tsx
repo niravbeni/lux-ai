@@ -46,6 +46,7 @@ export default function AppShell() {
   const screen = useAppStore((s) => s.screen);
   const setDemoMode = useAppStore((s) => s.setDemoMode);
   const activeProductId = useAppStore((s) => s.activeProductId);
+  const isConversing = useAppStore((s) => s.isConversing);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -64,11 +65,13 @@ export default function AppShell() {
     }
   }, [activeProductId]);
 
-  // Show the blurred camera feed on the product page, colour-morphing
-  // background on other immersive screens.
-  const showCameraBg = screen === 'viewer-hub';
+  // Show the blurred camera feed on the product page (but NOT during
+  // conversation mode — the orb/agent page keeps the colour-morph bg).
+  const showCameraBg = screen === 'viewer-hub' && !isConversing;
   const showMorphBg =
-    !showCameraBg && (screen === 'details-mode' || screen === 'transition');
+    (screen === 'viewer-hub' && isConversing) ||
+    screen === 'details-mode' ||
+    screen === 'transition';
 
   return (
     <>
