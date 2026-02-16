@@ -202,15 +202,12 @@ export default function ViewerHub() {
       {/* ─── VIEW AREA ─── */}
       <div className="relative z-10 flex-1 w-full min-h-0">
 
-        {/* 3D Frame Canvas — swipeable carousel */}
+        {/* 3D Frame Canvas — swipeable carousel.
+             Always stays visible (opacity 1). When the orb appears it
+             overlays on top with a dark backdrop — no fade-out needed. */}
         <motion.div
           className="absolute inset-0"
-          animate={{ opacity: isConversing ? 0 : 1 }}
-          transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-          style={{
-            pointerEvents: isConversing ? 'none' : 'auto',
-            willChange: 'opacity',
-          }}
+          style={{ pointerEvents: isConversing ? 'none' : 'auto' }}
           onPanEnd={handlePanEnd}
         >
           <AnimatePresence mode="wait" custom={slideDirection}>
@@ -429,11 +426,24 @@ export default function ViewerHub() {
           </div>
         </motion.div>
 
-        {/* AI Orb overlay — separate Canvas, layered on top */}
+        {/* Dark backdrop — dims the product page when the orb is open.
+             Sits between the 3D canvas and the orb so the product stays
+             rendered underneath (no unmount/remount flicker). */}
+        <motion.div
+          className="absolute inset-0 bg-black/80 z-15"
+          animate={{ opacity: isConversing ? 1 : 0 }}
+          transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+          style={{
+            pointerEvents: 'none',
+            willChange: 'opacity',
+          }}
+        />
+
+        {/* AI Orb overlay — layered on top of the backdrop */}
         <motion.div
           className="absolute inset-0"
           animate={{ opacity: isConversing ? 1 : 0 }}
-          transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+          transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1], delay: isConversing ? 0.1 : 0 }}
           style={{
             pointerEvents: isConversing ? 'auto' : 'none',
             willChange: 'opacity',

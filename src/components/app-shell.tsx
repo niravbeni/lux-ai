@@ -46,7 +46,6 @@ export default function AppShell() {
   const screen = useAppStore((s) => s.screen);
   const setDemoMode = useAppStore((s) => s.setDemoMode);
   const activeProductId = useAppStore((s) => s.activeProductId);
-  const isConversing = useAppStore((s) => s.isConversing);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -65,51 +64,32 @@ export default function AppShell() {
     }
   }, [activeProductId]);
 
-  // On the viewer-hub screen, both backgrounds stay mounted so we can
-  // cross-fade between them without destroying/recreating the camera
-  // stream.  The camera feed shows on the product view; the colour-morph
-  // background fades in when the user enters conversation mode.
+  // Camera bg stays mounted for the entire viewer-hub lifetime.
+  // The orb overlay darkens the scene when conversing (handled inside
+  // ViewerHub), so no background swap is needed — the camera keeps running.
   const isViewerHub = screen === 'viewer-hub';
-  const showCameraBg = isViewerHub;                       // always mounted on viewer-hub
-  const cameraBgVisible = isViewerHub && !isConversing;   // faded in/out via opacity
+  const showCameraBg = isViewerHub;
   const showMorphBg =
-    (isViewerHub && isConversing) ||
-    screen === 'details-mode' ||
-    screen === 'transition';
+    screen === 'details-mode' || screen === 'transition';
   const hasBg = showCameraBg || showMorphBg;
 
   return (
     <>
       {/* ── Blurred camera background (product page) ───────────────────
           Stays mounted for the entire viewer-hub lifetime so the camera
-          stream is never destroyed.  The `visible` prop cross-fades it
-          out when entering conversation mode.                           */}
-      {showCameraBg && <CameraBackground visible={cameraBgVisible} />}
+          stream is never destroyed.  The orb overlay in ViewerHub dims
+          the scene with a dark backdrop — no bg swap needed.            */}
+      {showCameraBg && <CameraBackground />}
 
-      {/* ── Colour-morphing background (conversation + other screens) ──*/}
-      {isViewerHub ? (
-        /* On viewer-hub: always mounted, opacity-driven cross-fade */
-        <div
-          className="fixed inset-0 colour-morph-bg"
-          style={{
-            zIndex: 0,
-            pointerEvents: 'none',
-            opacity: isConversing ? 1 : 0,
-            transition: 'opacity 0.6s ease-in-out',
-            willChange: 'opacity',
-          }}
-        >
-          <div className="colour-morph-blob-gold" />
-        </div>
-      ) : showMorphBg ? (
-        /* On other screens: conditional mount (no camera to preserve) */
+      {/* ── Colour-morphing background (details / transition screens) ──*/}
+      {showMorphBg && (
         <div
           className="fixed inset-0 colour-morph-bg"
           style={{ zIndex: 0, pointerEvents: 'none' }}
         >
           <div className="colour-morph-blob-gold" />
         </div>
-      ) : null}
+      )}
 
       {/* ── Content container ───────────────────────────────────────────
           fixed inset-0 = covers the full physical viewport so the app

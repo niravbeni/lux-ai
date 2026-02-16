@@ -8,11 +8,10 @@ import { useEffect, useRef, useState } from 'react';
  * reflects the scene in front of the user. On desktop falls back to
  * the front camera. Transparent fallback if camera access is denied.
  *
- * Accepts a `visible` prop so the parent can fade it in/out without
- * unmounting — this keeps the camera stream alive across transitions
- * and avoids the costly getUserMedia restart.
+ * The component stays mounted for the entire viewer-hub lifetime so
+ * the camera stream is never destroyed.
  */
-export default function CameraBackground({ visible = true }: { visible?: boolean }) {
+export default function CameraBackground() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [ready, setReady] = useState(false);
@@ -69,7 +68,7 @@ export default function CameraBackground({ visible = true }: { visible?: boolean
         objectFit: 'cover',
         transform: `${isFrontCamera ? 'scaleX(-1) ' : ''}scale(1.15)`,
         filter: 'blur(40px) brightness(0.5) saturate(1.2)',
-        opacity: ready && visible ? 1 : 0,
+        opacity: ready ? 1 : 0,
         transition: 'opacity 0.6s ease-in-out',
         willChange: 'opacity',
         zIndex: 0,
