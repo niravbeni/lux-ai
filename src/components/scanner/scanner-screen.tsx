@@ -95,11 +95,15 @@ export default function ScannerScreen() {
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-black">
-      {/* Camera feed — no fade-in animation so the black bg appears
-           instantly and the camera fills in naturally once ready. */}
+      {/* Camera feed — starts invisible, fades in once the camera
+           stream is running to avoid the initialization flash. */}
       <div
         id="qr-scanner-region"
         className="absolute inset-0 w-full h-full qr-scanner-fullscreen"
+        style={{
+          opacity: scanning ? 1 : 0,
+          transition: 'opacity 0.4s ease-in',
+        }}
       />
 
       {/* Scan frame overlay */}
