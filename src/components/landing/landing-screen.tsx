@@ -6,6 +6,7 @@ import { useAppStore } from '@/store/app-store';
 import { getProduct, DEFAULT_PRODUCT_ID } from '@/data/product-catalog';
 import OrbCanvas from '@/components/orb/orb-canvas';
 import { triggerHaptic } from '@/lib/haptics';
+import { warmUpTTS } from '@/lib/tts';
 
 // Start preloading the GLB model immediately when the app loads
 useGLTF.preload(getProduct(DEFAULT_PRODUCT_ID).modelPath);
@@ -15,6 +16,7 @@ export default function LandingScreen() {
 
   const handleScan = () => {
     triggerHaptic('light');
+    warmUpTTS(); // Unlock audio on this early user gesture
     setScreen('scanner');
   };
 

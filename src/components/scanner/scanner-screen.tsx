@@ -7,6 +7,7 @@ import { useGLTF } from '@react-three/drei';
 import { useAppStore } from '@/store/app-store';
 import { productData } from '@/data/product-data';
 import { triggerHaptic } from '@/lib/haptics';
+import { warmUpTTS } from '@/lib/tts';
 
 // Start preloading the GLB model while user is scanning
 useGLTF.preload(productData.modelPath);
@@ -27,6 +28,7 @@ export default function ScannerScreen() {
       hasScanned.current = true;
 
       triggerHaptic('success');
+      warmUpTTS(); // Unlock audio early so product page greeting plays
       setOrbState('recognition');
       setScannedProductId(decodedText || 'rayban-meta-smart-glasses');
 
@@ -39,6 +41,7 @@ export default function ScannerScreen() {
   );
 
   const handleSkipScan = () => {
+    warmUpTTS(); // Unlock audio on this user gesture
     handleScanSuccess('rayban-meta-smart-glasses');
   };
 

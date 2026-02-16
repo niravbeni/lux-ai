@@ -11,6 +11,11 @@ let pendingResolve: (() => void) | null = null;
 // long utterances and needs periodic nudging.
 let resumeTimer: ReturnType<typeof setInterval> | null = null;
 
+// Shared Audio element — created and "unlocked" during a user gesture so
+// that subsequent async .play() calls aren't blocked by iOS Safari.
+let sharedAudio: HTMLAudioElement | null = null;
+let audioUnlocked = false;
+
 function setPlaying(active: boolean) {
   const { setIsSpeaking, setOrbState } = useAppStore.getState();
   setIsSpeaking(active);
@@ -80,6 +85,15 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
   });
 }
 
+// ── Shared Audio helpers ──────────────────────────────────────────────
+
+function getSharedAudio(): HTMLAudioElement {
+  if (!sharedAudio && typeof window !== 'undefined') {
+    sharedAudio = new Audio();
+  }
+  return sharedAudio!;
+}
+
 // ── Main speak function ───────────────────────────────────────────────
 // Returns a promise that resolves when audio FINISHES playing (not starts).
 export async function speak(text: string): Promise<void> {
@@ -121,6 +135,7 @@ export async function speak(text: string): Promise<void> {
     if (id !== speakId) return;
 
     if (!response.ok) {
+      console.warn('[TTS] ElevenLabs returned', response.status, '— falling back to browser speech');
       await speakWithBrowser(text, id);
       return;
     }
@@ -129,14 +144,19 @@ export async function speak(text: string): Promise<void> {
     if (id !== speakId) return;
 
     const audioUrl = URL.createObjectURL(audioBlob);
-    const audio = new Audio(audioUrl);
+
+    // Reuse the shared (pre-unlocked) Audio element so iOS Safari
+    // doesn't block playback.  Fall back to a new element on desktop.
+    const audio = audioUnlocked ? getSharedAudio() : new Audio();
+    audio.src = audioUrl;
     currentAudio = audio;
 
     await new Promise<void>((resolve) => {
+      let urlRevoked = false;
       const cleanup = () => {
         if (currentAudio === audio) currentAudio = null;
         if (id === speakId) setPlaying(false);
-        if (audioUrl) URL.revokeObjectURL(audioUrl);
+        if (!urlRevoked) { URL.revokeObjectURL(audioUrl); urlRevoked = true; }
         pendingResolve = null;
         resolve();
       };
@@ -151,11 +171,11 @@ export async function speak(text: string): Promise<void> {
         .then(() => {
           if (id === speakId) setPlaying(true);
         })
-        .catch(() => {
+        .catch((err) => {
+          console.warn('[TTS] audio.play() blocked:', err?.message, '— falling back to browser speech');
           if (currentAudio === audio) currentAudio = null;
-          if (audioUrl) URL.revokeObjectURL(audioUrl);
+          if (!urlRevoked) { URL.revokeObjectURL(audioUrl); urlRevoked = true; }
           pendingResolve = null;
-          // Autoplay blocked — fall back to browser speech
           speakWithBrowser(text, id).then(resolve);
         });
     });
@@ -167,24 +187,42 @@ export async function speak(text: string): Promise<void> {
 }
 
 // Call from a user-gesture handler (e.g. onPointerDown) to "unlock"
-// speechSynthesis on iOS Safari — iOS requires a user-initiated speak()
-// before allowing async speaks.  Without this, the fallback TTS is silent.
+// BOTH speechSynthesis AND HTMLAudioElement on iOS Safari.
+// iOS requires a user-initiated play()/speak() before allowing async ones.
 export function warmUpTTS(): void {
   if (typeof window === 'undefined') return;
+
+  // 1. Unlock speechSynthesis
   const synth = window.speechSynthesis;
-  if (!synth) return;
-  // Speak a nearly-silent space character at max rate — completes instantly.
-  const u = new SpeechSynthesisUtterance(' ');
-  u.volume = 0.01;
-  u.rate = 10;
-  synth.speak(u);
+  if (synth) {
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0.01;
+    u.rate = 10;
+    synth.speak(u);
+  }
+
+  // 2. Unlock HTMLAudioElement — play a tiny silent WAV on the shared
+  //    element so that subsequent async .play() calls are permitted.
+  if (!audioUnlocked) {
+    const audio = getSharedAudio();
+    // Minimal valid WAV: 44-byte header + 1 sample of silence
+    const silence =
+      'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+    audio.src = silence;
+    audio.volume = 0.01;
+    audio.play()
+      .then(() => { audioUnlocked = true; })
+      .catch(() => { /* ignore — not in gesture context */ });
+  }
 }
 
 export function stopSpeaking(): void {
   speakId++;
   if (currentAudio) {
     currentAudio.pause();
-    currentAudio = null;
+    // Don't null the shared element — just detach the reference
+    if (currentAudio !== sharedAudio) currentAudio = null;
+    else currentAudio = null;
   }
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
   if (synth?.speaking || synth?.pending) {
