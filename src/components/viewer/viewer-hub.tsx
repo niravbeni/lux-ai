@@ -58,9 +58,18 @@ export default function ViewerHub() {
   const frameColourways = useAppStore((s) => s.frameColourways);
   const frameAiColourways = useAppStore((s) => s.frameAiColourways);
   const [slideDirection, setSlideDirection] = useState(0);
+  const [hasEnteredConversation, setHasEnteredConversation] = useState(false);
   const canGoPrev = frameHistoryIndex > 0;
   const canGoNext = frameHistoryIndex < frameHistory.length - 1;
   const product = getProduct(activeProductId);
+
+  // Track when conversation mode has been entered at least once,
+  // so the OrbCanvas only mounts after the first real use (avoids flash).
+  useEffect(() => {
+    if (isConversing && !hasEnteredConversation) {
+      setHasEnteredConversation(true);
+    }
+  }, [isConversing, hasEnteredConversation]);
 
   // After each product switch, reset slide direction to "forward" so that
   // the next AI-triggered change always slides in from the right.
@@ -427,34 +436,42 @@ export default function ViewerHub() {
         </motion.div>
 
         {/* Dark backdrop — dims the product page when the orb is open.
-             Sits between the 3D canvas and the orb so the product stays
-             rendered underneath (no unmount/remount flicker). */}
-        <motion.div
-          className="absolute inset-0 bg-black/80 z-15"
-          animate={{ opacity: isConversing ? 1 : 0 }}
-          transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+             Pure CSS transition, no framer-motion to avoid animation
+             frame glitches. */}
+        <div
+          className="absolute inset-0 bg-black/80"
           style={{
+            zIndex: 15,
+            opacity: isConversing ? 1 : 0,
+            transition: 'opacity 0.35s ease',
             pointerEvents: 'none',
-            willChange: 'opacity',
           }}
         />
 
-        {/* AI Orb overlay — layered on top of the backdrop */}
-        <motion.div
+        {/* AI Orb overlay — layered on top of the backdrop.
+             Pure CSS visibility + opacity toggle. The OrbCanvas is only
+             rendered once conversation mode has been entered at least once
+             to avoid any flash on initial mount. */}
+        <div
           className="absolute inset-0"
-          animate={{ opacity: isConversing ? 1 : 0 }}
-          transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1], delay: isConversing ? 0.1 : 0 }}
           style={{
+            zIndex: 20,
+            opacity: isConversing ? 1 : 0,
+            visibility: isConversing ? 'visible' : 'hidden',
+            transition: isConversing
+              ? 'opacity 0.35s ease, visibility 0s'
+              : 'opacity 0.3s ease, visibility 0s 0.3s',
             pointerEvents: isConversing ? 'auto' : 'none',
-            willChange: 'opacity',
           }}
         >
-          <OrbCanvas
-            scale={1}
-            interactive={isConversing}
-            offsetY={0.3}
-            className="w-full h-full"
-          />
+          {hasEnteredConversation && (
+            <OrbCanvas
+              scale={1}
+              interactive={isConversing}
+              offsetY={0.3}
+              className="w-full h-full"
+            />
+          )}
 
           {/* Close button — just the X, no circle */}
           <button
@@ -538,7 +555,7 @@ export default function ViewerHub() {
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* ─── BOTTOM CONTROLS ─── */}
