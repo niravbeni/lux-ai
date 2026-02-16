@@ -60,6 +60,13 @@ interface AppState {
   scannedProductId: string | null;
   setScannedProductId: (id: string | null) => void;
 
+  // Frame carousel — ordered history of frames the user has viewed
+  frameHistory: string[];
+  frameHistoryIndex: number;
+  addFrameToHistory: (id: string) => void;
+  navigateCarousel: (direction: 'prev' | 'next') => void;
+  setFrameHistoryIndex: (index: number) => void;
+
   // Active colourway
   activeColourway: string;
   setActiveColourway: (id: string) => void;
@@ -130,12 +137,59 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveProductId: (activeProductId) => {
     const current = get().activeProductId;
     if (activeProductId !== current) {
-      set({ activeProductId, previousProductId: current });
+      // Also ensure the new product is in the frame history and update the index
+      const history = [...get().frameHistory];
+      let idx = history.indexOf(activeProductId);
+      if (idx === -1) {
+        history.push(activeProductId);
+        idx = history.length - 1;
+      }
+      set({
+        activeProductId,
+        previousProductId: current,
+        frameHistory: history,
+        frameHistoryIndex: idx,
+      });
     }
   },
 
   scannedProductId: null,
   setScannedProductId: (scannedProductId) => set({ scannedProductId }),
+
+  // Frame carousel
+  frameHistory: [DEFAULT_PRODUCT_ID],
+  frameHistoryIndex: 0,
+  addFrameToHistory: (id) => {
+    const history = get().frameHistory;
+    if (!history.includes(id)) {
+      set({ frameHistory: [...history, id] });
+    }
+  },
+  navigateCarousel: (direction) => {
+    const { frameHistory, frameHistoryIndex } = get();
+    const newIndex =
+      direction === 'prev'
+        ? Math.max(0, frameHistoryIndex - 1)
+        : Math.min(frameHistory.length - 1, frameHistoryIndex + 1);
+    if (newIndex !== frameHistoryIndex) {
+      const newProductId = frameHistory[newIndex];
+      set({
+        frameHistoryIndex: newIndex,
+        activeProductId: newProductId,
+        previousProductId: get().activeProductId,
+      });
+    }
+  },
+  setFrameHistoryIndex: (index) => {
+    const { frameHistory } = get();
+    if (index >= 0 && index < frameHistory.length) {
+      set({
+        frameHistoryIndex: index,
+        activeProductId: frameHistory[index],
+        previousProductId: get().activeProductId,
+      });
+    }
+  },
 
   // Active colourway
   activeColourway: 'shiny-black',
