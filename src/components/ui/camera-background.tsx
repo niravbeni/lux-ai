@@ -3,22 +3,27 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Full-screen blurred front-camera feed used as an ambient background.
- * Falls back to transparent (parent bg shows through) if camera access
- * is unavailable or denied.
+ * Full-screen blurred camera feed used as an ambient background.
+ * On mobile (Android / iOS) uses the back camera so the background
+ * reflects the scene in front of the user. On desktop falls back to
+ * the front camera. Transparent fallback if camera access is denied.
  */
 export default function CameraBackground() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [ready, setReady] = useState(false);
+  const [isFrontCamera, setIsFrontCamera] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function start() {
       try {
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const facingMode = isMobile ? 'environment' : 'user';
+
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false,
         });
 
@@ -28,6 +33,7 @@ export default function CameraBackground() {
         }
 
         streamRef.current = stream;
+        if (!isMobile) setIsFrontCamera(true);
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -57,7 +63,7 @@ export default function CameraBackground() {
       className="fixed inset-0 w-full h-full transition-opacity duration-1000"
       style={{
         objectFit: 'cover',
-        transform: 'scaleX(-1) scale(1.15)',
+        transform: `${isFrontCamera ? 'scaleX(-1) ' : ''}scale(1.15)`,
         filter: 'blur(40px) brightness(0.5) saturate(1.2)',
         opacity: ready ? 1 : 0,
         zIndex: 0,
