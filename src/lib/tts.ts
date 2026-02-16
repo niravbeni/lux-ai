@@ -42,15 +42,27 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
 
+    // Pick the best-sounding English voice available, in priority order.
+    // Avoid "Karen" (Australian) — it sounds robotic.
     const voices = synth.getVoices();
-    const preferred = voices.find(
-      (v) =>
-        v.lang.startsWith('en') &&
-        (v.name.includes('Samantha') ||
-          v.name.includes('Karen') ||
-          v.name.includes('Google UK English Female') ||
-          v.name.includes('Microsoft Zira')),
-    );
+    const voicePrefs = [
+      'Samantha',                   // iOS / macOS — US English, natural
+      'Google UK English Female',   // Chrome desktop
+      'Microsoft Zira',             // Windows
+      'Moira',                      // macOS — Irish English, soft
+      'Fiona',                      // macOS — Scottish, pleasant
+      'Daniel',                     // iOS / macOS — UK English
+      'Tessa',                      // macOS — South African
+    ];
+    let preferred: SpeechSynthesisVoice | undefined;
+    for (const name of voicePrefs) {
+      preferred = voices.find((v) => v.lang.startsWith('en') && v.name.includes(name));
+      if (preferred) break;
+    }
+    // Last resort: any English voice that isn't Karen
+    if (!preferred) {
+      preferred = voices.find((v) => v.lang.startsWith('en') && !v.name.includes('Karen'));
+    }
     if (preferred) utterance.voice = preferred;
 
     const done = () => {
@@ -123,7 +135,8 @@ export async function speak(text: string): Promise<void> {
     if (id !== speakId) return;
 
     if (!response.ok) {
-      console.warn(`[TTS] ElevenLabs returned ${response.status} — falling back to browser voice`);
+      const errBody = await response.text().catch(() => '');
+      console.warn(`[TTS] ElevenLabs returned ${response.status}: ${errBody} — using browser voice`);
       await speakWithBrowser(text, id);
       return;
     }
