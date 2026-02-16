@@ -169,7 +169,7 @@ export default function ScannerScreen() {
           <p className="text-foreground/60 text-xs tracking-[0.2em] uppercase">
             Scan to discover
           </p>
-          <p className="text-foreground/80 text-base leading-relaxed max-w-[260px]">
+          <p className="text-foreground/80 text-base leading-relaxed max-w-[280px]">
             Looking for a glasses frame or QR code
           </p>
         </div>

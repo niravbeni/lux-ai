@@ -6,7 +6,7 @@ import { useAppStore } from '@/store/app-store';
 import { useSpeech } from './use-speech';
 import { routeFromTranscript } from '@/lib/keyword-router';
 import { triggerHaptic } from '@/lib/haptics';
-import { speak, stopSpeaking, warmUpTTS } from '@/lib/tts';
+import { speak, stopSpeaking, warmUpTTS, unlockAudioPlayback } from '@/lib/tts';
 import { getProduct, getColourway, registerColourway } from '@/data/product-catalog';
 
 // Strip [FRAME:product-id] and [COLOUR:...] tags from text and extract ids.
@@ -329,8 +329,9 @@ export default function VoiceInput() {
   const handleMicDown = () => {
     triggerHaptic('light');
 
-    // Warm up browser TTS on this user gesture — iOS Safari requires
-    // a user-initiated speak() before allowing async speaks later.
+    // Unlock audio playback for ElevenLabs (HTMLAudioElement) and warm
+    // up browser TTS as fallback — both require a user gesture on iOS.
+    unlockAudioPlayback();
     warmUpTTS();
 
     // If speaking, stop TTS first
@@ -369,6 +370,7 @@ export default function VoiceInput() {
     const text = textInput.trim();
     if (!text) return;
     setTextInput('');
+    unlockAudioPlayback();
 
     // If we're in full-screen conversation mode, exit it first
     if (isConversing) {

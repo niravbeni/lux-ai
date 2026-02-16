@@ -10,6 +10,8 @@ let pendingResolve: (() => void) | null = null;
 // Interval that calls speechSynthesis.resume() — iOS Safari silently pauses
 // long utterances and needs periodic nudging.
 let resumeTimer: ReturnType<typeof setInterval> | null = null;
+// Whether HTMLAudioElement.play() has been unlocked by a user gesture.
+let audioUnlocked = false;
 
 function setPlaying(active: boolean) {
   const { setIsSpeaking, setOrbState } = useAppStore.getState();
@@ -121,6 +123,7 @@ export async function speak(text: string): Promise<void> {
     if (id !== speakId) return;
 
     if (!response.ok) {
+      console.warn(`[TTS] ElevenLabs returned ${response.status} — falling back to browser voice`);
       await speakWithBrowser(text, id);
       return;
     }
@@ -151,11 +154,11 @@ export async function speak(text: string): Promise<void> {
         .then(() => {
           if (id === speakId) setPlaying(true);
         })
-        .catch(() => {
+        .catch((err) => {
+          console.warn('[TTS] audio.play() blocked — falling back to browser voice', err?.message);
           if (currentAudio === audio) currentAudio = null;
           if (audioUrl) URL.revokeObjectURL(audioUrl);
           pendingResolve = null;
-          // Autoplay blocked — fall back to browser speech
           speakWithBrowser(text, id).then(resolve);
         });
     });
@@ -178,6 +181,25 @@ export function warmUpTTS(): void {
   u.volume = 0.01;
   u.rate = 10;
   synth.speak(u);
+}
+
+// Call from a user-gesture handler to unlock HTMLAudioElement.play() on iOS.
+// iOS Safari blocks audio.play() unless it was first triggered during a
+// user-initiated event.  Playing a tiny silent WAV "unlocks" the session
+// so that later async speak() calls can use the ElevenLabs audio path.
+export function unlockAudioPlayback(): void {
+  if (audioUnlocked || typeof window === 'undefined') return;
+  try {
+    const a = new Audio();
+    // Minimal valid WAV: 44-byte header, 0 data frames
+    a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+    a.volume = 0.01;
+    a.play()
+      .then(() => { audioUnlocked = true; })
+      .catch(() => {});
+  } catch {
+    // Ignore — not critical, will fall back to browser speech
+  }
 }
 
 export function stopSpeaking(): void {

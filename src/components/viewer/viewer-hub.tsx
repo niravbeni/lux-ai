@@ -17,22 +17,21 @@ function ModelFallback() {
   return null;
 }
 
-/** Truncate text at the last complete sentence within maxLen characters. */
-function truncateAtSentence(text: string, maxLen: number): string {
-  if (text.length <= maxLen) return text;
-  const trimmed = text.slice(0, maxLen);
-  // Find the last sentence-ending punctuation within the limit
+/** Truncate text to ~3 visible lines, always ending at a sentence boundary. */
+function truncateAtSentence(text: string, maxLen = 150): string {
+  if (!text || text.length <= maxLen) return text;
+  const truncated = text.slice(0, maxLen);
   const lastEnd = Math.max(
-    trimmed.lastIndexOf('. '),
-    trimmed.lastIndexOf('! '),
-    trimmed.lastIndexOf('? '),
-    trimmed.lastIndexOf('.\u201D'),
-    trimmed.lastIndexOf('.'),
+    truncated.lastIndexOf('. '),
+    truncated.lastIndexOf('! '),
+    truncated.lastIndexOf('? '),
+    truncated.lastIndexOf('.'),
+    truncated.lastIndexOf('!'),
+    truncated.lastIndexOf('?'),
   );
-  if (lastEnd > maxLen * 0.4) return text.slice(0, lastEnd + 1).trim();
-  // Fallback: cut at last space and add ellipsis
-  const lastSpace = trimmed.lastIndexOf(' ');
-  return (lastSpace > 0 ? trimmed.slice(0, lastSpace) : trimmed) + '\u2026';
+  if (lastEnd > maxLen * 0.35) return truncated.slice(0, lastEnd + 1).trim();
+  const lastSpace = truncated.lastIndexOf(' ');
+  return (lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated).trim() + '…';
 }
 
 export default function ViewerHub() {
@@ -397,7 +396,7 @@ export default function ViewerHub() {
             transition={{ delay: 0.5, duration: 0.5 }}
           >
             <p className="text-foreground/70 text-sm leading-relaxed text-center">
-              {truncateAtSentence(assistantMessage, 160)}
+              {truncateAtSentence(assistantMessage)}
             </p>
           </motion.div>
         )}
