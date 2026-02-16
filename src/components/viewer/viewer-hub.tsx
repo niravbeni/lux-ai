@@ -17,6 +17,24 @@ function ModelFallback() {
   return null;
 }
 
+/** Truncate text at the last complete sentence within maxLen characters. */
+function truncateAtSentence(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  const trimmed = text.slice(0, maxLen);
+  // Find the last sentence-ending punctuation within the limit
+  const lastEnd = Math.max(
+    trimmed.lastIndexOf('. '),
+    trimmed.lastIndexOf('! '),
+    trimmed.lastIndexOf('? '),
+    trimmed.lastIndexOf('.\u201D'),
+    trimmed.lastIndexOf('.'),
+  );
+  if (lastEnd > maxLen * 0.4) return text.slice(0, lastEnd + 1).trim();
+  // Fallback: cut at last space and add ellipsis
+  const lastSpace = trimmed.lastIndexOf(' ');
+  return (lastSpace > 0 ? trimmed.slice(0, lastSpace) : trimmed) + '\u2026';
+}
+
 export default function ViewerHub() {
   const assistantMessage = useAppStore((s) => s.assistantMessage);
   const setAssistantMessage = useAppStore((s) => s.setAssistantMessage);
@@ -378,24 +396,8 @@ export default function ViewerHub() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.5 }}
           >
-            <p className="text-foreground/70 text-sm leading-relaxed text-center line-clamp-3">
-              {(() => {
-                const max = 160;
-                if (assistantMessage.length <= max) return assistantMessage;
-                const trimmed = assistantMessage.slice(0, max);
-                const lastSentence = Math.max(
-                  trimmed.lastIndexOf('. '),
-                  trimmed.lastIndexOf('! '),
-                  trimmed.lastIndexOf('? '),
-                  trimmed.lastIndexOf('.'),
-                  trimmed.lastIndexOf('!'),
-                  trimmed.lastIndexOf('?'),
-                );
-                if (lastSentence > max * 0.4) {
-                  return assistantMessage.slice(0, lastSentence + 1);
-                }
-                return trimmed.slice(0, trimmed.lastIndexOf(' ')) + '…';
-              })()}
+            <p className="text-foreground/70 text-sm leading-relaxed text-center">
+              {truncateAtSentence(assistantMessage, 160)}
             </p>
           </motion.div>
         )}
