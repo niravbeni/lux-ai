@@ -1,11 +1,11 @@
 'use client';
 
-import { Suspense, useEffect, useCallback, useRef, useState } from 'react';
+import { Suspense, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows } from '@react-three/drei';
 import { useAppStore } from '@/store/app-store';
-import { getProduct, getColourway, productCatalog } from '@/data/product-catalog';
+import { getProduct, getColourway } from '@/data/product-catalog';
 import { dialogueScripts, pickRandom } from '@/data/dialogue-scripts';
 import SuggestionPills from './suggestion-pills';
 import FrameModel from './frame-model';
@@ -15,29 +15,6 @@ import { speak, stopSpeaking } from '@/lib/tts';
 
 function ModelFallback() {
   return null;
-}
-
-/** Truncate text at the last sentence boundary (. ! ?) within `maxLen` chars.
- *  If no sentence boundary is found, truncate at the last space and add "…". */
-function truncateAtSentence(text: string, maxLen: number): string {
-  if (text.length <= maxLen) return text;
-  const slice = text.slice(0, maxLen);
-  // Find the last sentence-ending punctuation
-  const lastSentence = Math.max(
-    slice.lastIndexOf('. '),
-    slice.lastIndexOf('! '),
-    slice.lastIndexOf('? '),
-    slice.lastIndexOf('.'),
-    slice.lastIndexOf('!'),
-    slice.lastIndexOf('?'),
-  );
-  if (lastSentence > maxLen * 0.4) {
-    return text.slice(0, lastSentence + 1).trim();
-  }
-  // No good sentence boundary — break at last space
-  const lastSpace = slice.lastIndexOf(' ');
-  if (lastSpace > 0) return slice.slice(0, lastSpace).trim() + '…';
-  return slice.trim() + '…';
 }
 
 export default function ViewerHub() {
@@ -145,53 +122,6 @@ export default function ViewerHub() {
     setActiveColourway(cwId);
   };
 
-  // ── Carousel swipe handling ───────────────────────────────────────────
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const [swipeDir, setSwipeDir] = useState<'left' | 'right' | null>(null);
-  const SWIPE_THRESHOLD = 50;
-
-  const currentIndex = productCatalog.findIndex((p) => p.id === activeProductId);
-
-  const navigateToProduct = useCallback(
-    (index: number) => {
-      const target = productCatalog[index];
-      if (!target || target.id === activeProductId) return;
-      setActiveProductId(target.id);
-      setActiveColourway(target.colourways[0]?.id ?? '');
-      setRecommendedProductId(null);
-      setAiRecommendedColourway(null);
-      const msg = `Here's the ${target.name}. Swipe to browse more, or ask me anything.`;
-      setAssistantMessage(msg);
-      speak(msg).catch(() => {});
-    },
-    [activeProductId, setActiveProductId, setActiveColourway, setRecommendedProductId, setAiRecommendedColourway, setAssistantMessage],
-  );
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  }, []);
-
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      if (!touchStart.current) return;
-      const deltaX = e.changedTouches[0].clientX - touchStart.current.x;
-      const deltaY = e.changedTouches[0].clientY - touchStart.current.y;
-      touchStart.current = null;
-
-      // Only trigger if horizontal swipe is dominant
-      if (Math.abs(deltaX) < SWIPE_THRESHOLD || Math.abs(deltaY) > Math.abs(deltaX)) return;
-
-      if (deltaX < 0 && currentIndex < productCatalog.length - 1) {
-        setSwipeDir('left');
-        navigateToProduct(currentIndex + 1);
-      } else if (deltaX > 0 && currentIndex > 0) {
-        setSwipeDir('right');
-        navigateToProduct(currentIndex - 1);
-      }
-    },
-    [currentIndex, navigateToProduct],
-  );
-
   return (
     <motion.div
       className="relative flex h-full w-full flex-col overflow-hidden"
@@ -203,109 +133,104 @@ export default function ViewerHub() {
       {/* ─── VIEW AREA ─── */}
       <div className="relative z-10 flex-1 w-full min-h-0">
 
-        {/* 3D Frame Canvas — swipeable carousel */}
+        {/* 3D Frame Canvas — always present, never touched */}
         <div
           className="absolute inset-0 transition-opacity duration-500 ease-in-out"
           style={{
             opacity: isConversing ? 0 : 1,
             pointerEvents: isConversing ? 'none' : 'auto',
           }}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
         >
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={activeProductId}
-              className="absolute inset-0"
-              initial={{ opacity: 0, x: swipeDir === 'left' ? 60 : swipeDir === 'right' ? -60 : 0 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: swipeDir === 'left' ? -60 : swipeDir === 'right' ? 60 : 0 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-            >
-              <Canvas
-                camera={{ position: [0, 0.15, 4.5], fov: 30 }}
-                gl={{ alpha: true, antialias: true }}
-                dpr={[1, 2]}
-                className="!absolute inset-0"
-                style={{ background: 'transparent' }}
-                onCreated={({ gl }) => {
-                  gl.setClearColor(0x000000, 0);
-                }}
-              >
-                <Suspense fallback={<ModelFallback />}>
-                  <ambientLight intensity={1.0} />
-                  <directionalLight position={[5, 8, 5]} intensity={1.8} color="#ffffff" />
-                  <directionalLight position={[-4, 4, 3]} intensity={0.8} color="#e8ddd0" />
-                  <directionalLight position={[0, -3, 5]} intensity={0.5} color="#d0dde8" />
-                  <directionalLight position={[0, 5, -3]} intensity={0.4} color="#c9a96e" />
-                  <Environment preset="studio" background={false} />
-                  <FrameModel modelPath={product.modelPath} />
-                  <ContactShadows
-                    position={[0, -1.2, 0]}
-                    opacity={0.15}
-                    scale={8}
-                    blur={3}
-                    far={4}
-                    color="#000000"
-                  />
-                  <OrbitControls
-                    enableZoom={false}
-                    enablePan={false}
-                    target={[0, 0.15, 0]}
-                    minPolarAngle={Math.PI / 3}
-                    maxPolarAngle={Math.PI / 1.8}
-                    minAzimuthAngle={-Math.PI / 3}
-                    maxAzimuthAngle={Math.PI / 3}
-                    rotateSpeed={0.5}
-                    dampingFactor={0.08}
-                    enableDamping
-                  />
-                </Suspense>
-              </Canvas>
-            </motion.div>
-          </AnimatePresence>
+          <Canvas
+            camera={{ position: [0, 0.15, 4.5], fov: 30 }}
+            gl={{ alpha: true, antialias: true }}
+            dpr={[1, 2]}
+            className="!absolute inset-0"
+            style={{ background: 'transparent' }}
+            onCreated={({ gl }) => {
+              gl.setClearColor(0x000000, 0);
+            }}
+          >
+            <Suspense fallback={<ModelFallback />}>
+              <ambientLight intensity={1.0} />
+              <directionalLight position={[5, 8, 5]} intensity={1.8} color="#ffffff" />
+              <directionalLight position={[-4, 4, 3]} intensity={0.8} color="#e8ddd0" />
+              <directionalLight position={[0, -3, 5]} intensity={0.5} color="#d0dde8" />
+              <directionalLight position={[0, 5, -3]} intensity={0.4} color="#c9a96e" />
+              <Environment preset="studio" background={false} />
+              <FrameModel modelPath={product.modelPath} />
+              <ContactShadows
+                position={[0, -1.2, 0]}
+                opacity={0.15}
+                scale={8}
+                blur={3}
+                far={4}
+                color="#000000"
+              />
+              <OrbitControls
+                enableZoom={false}
+                enablePan={false}
+                target={[0, 0.15, 0]}
+                minPolarAngle={Math.PI / 3}
+                maxPolarAngle={Math.PI / 1.8}
+                minAzimuthAngle={-Math.PI / 3}
+                maxAzimuthAngle={Math.PI / 3}
+                rotateSpeed={0.5}
+                dampingFactor={0.08}
+                enableDamping
+              />
+            </Suspense>
+          </Canvas>
 
-          {/* ─── Carousel header: name + dots + colourway pills ─── */}
+          {/* Product name + colourway pills */}
           <div
-            className="absolute left-0 right-0 flex flex-col items-center gap-2 z-20 pointer-events-none"
+            className="absolute left-0 right-0 flex flex-col items-center gap-2 z-20"
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
           >
-            <AnimatePresence mode="wait">
-              <motion.p
-                key={product.name}
-                className="text-foreground/60 text-sm tracking-wide font-light"
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                transition={{ duration: 0.2 }}
-              >
-                {product.name}
-              </motion.p>
-            </AnimatePresence>
-
-            {/* Dot indicators */}
             <div className="flex items-center gap-2">
-              {productCatalog.map((p, i) => (
-                <button
-                  key={p.id}
-                  onClick={() => { setSwipeDir(i > currentIndex ? 'left' : 'right'); navigateToProduct(i); }}
-                  className="pointer-events-auto p-1"
+              {/* Back arrow — go to previous frame */}
+              {previousProductId && previousProductId !== activeProductId && (
+                <motion.button
+                  onClick={handleGoBack}
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex items-center gap-1 rounded-full pl-2.5 pr-3 py-1 text-[11px] tracking-wide bg-white/5 backdrop-blur-md text-foreground/40 border border-white/5 hover:text-foreground/60 transition-all active:scale-95"
+                  title={`Back to ${getProduct(previousProductId).name}`}
                 >
-                  <div
-                    className={`rounded-full transition-all duration-300 ${
-                      i === currentIndex
-                        ? 'w-5 h-1.5 bg-gold/70'
-                        : 'w-1.5 h-1.5 bg-foreground/20'
-                    }`}
-                  />
-                </button>
-              ))}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                  {getProduct(previousProductId).name.split(' ').slice(0, 2).join(' ')}
+                </motion.button>
+              )}
+
+              <p className="text-foreground/60 text-sm tracking-wide font-light">
+                {product.name}
+              </p>
+
+              {/* Forward arrow — view AI-recommended frame */}
+              {recommendedProductId && recommendedProductId !== activeProductId && (
+                <motion.button
+                  onClick={handleViewRecommended}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex items-center gap-1 rounded-full pl-2.5 pr-3 py-1 text-[11px] tracking-wide bg-gold/15 backdrop-blur-md text-gold/90 border border-gold/20 hover:border-gold/40 transition-all active:scale-95"
+                  title={`View ${getProduct(recommendedProductId).name}`}
+                >
+                  {getProduct(recommendedProductId).name.split(' ').slice(0, 2).join(' ')}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </motion.button>
+              )}
             </div>
 
-            {/* Colourway pills */}
-            <div className="flex items-center gap-2 pointer-events-auto">
-              {showColourPills ? (
-                availablePills.map((cw) => {
+            {/* Colourway pills — switchable if colour match has been done */}
+            {showColourPills ? (
+              <div className="flex items-center gap-2">
+                {availablePills.map((cw) => {
                   const isActive = cw.id === activeColourway;
                   return (
                     <button
@@ -327,13 +252,13 @@ export default function ViewerHub() {
                       {cw.name}
                     </button>
                   );
-                })
-              ) : (
-                <div className="rounded-full px-3.5 py-1 text-[11px] tracking-wide bg-white/5 backdrop-blur-md text-foreground/35 border border-white/5">
-                  {colourwayName}
-                </div>
-              )}
-            </div>
+                })}
+              </div>
+            ) : (
+              <div className="rounded-full px-3.5 py-1 text-[11px] tracking-wide bg-white/5 backdrop-blur-md text-foreground/35 border border-white/5">
+                {colourwayName}
+              </div>
+            )}
           </div>
         </div>
 
@@ -453,8 +378,24 @@ export default function ViewerHub() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.5 }}
           >
-            <p className="text-foreground/70 text-sm leading-relaxed text-center">
-              {truncateAtSentence(assistantMessage, 160)}
+            <p className="text-foreground/70 text-sm leading-relaxed text-center line-clamp-3">
+              {(() => {
+                const max = 160;
+                if (assistantMessage.length <= max) return assistantMessage;
+                const trimmed = assistantMessage.slice(0, max);
+                const lastSentence = Math.max(
+                  trimmed.lastIndexOf('. '),
+                  trimmed.lastIndexOf('! '),
+                  trimmed.lastIndexOf('? '),
+                  trimmed.lastIndexOf('.'),
+                  trimmed.lastIndexOf('!'),
+                  trimmed.lastIndexOf('?'),
+                );
+                if (lastSentence > max * 0.4) {
+                  return assistantMessage.slice(0, lastSentence + 1);
+                }
+                return trimmed.slice(0, trimmed.lastIndexOf(' ')) + '…';
+              })()}
             </p>
           </motion.div>
         )}

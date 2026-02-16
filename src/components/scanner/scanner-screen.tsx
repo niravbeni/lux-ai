@@ -167,7 +167,7 @@ export default function ScannerScreen() {
         {/* Instruction text */}
         <div className="text-center space-y-2">
           <p className="text-foreground/60 text-xs tracking-[0.2em] uppercase">
-            Discover
+            Scan to discover
           </p>
           <p className="text-foreground/80 text-base leading-relaxed max-w-[260px]">
             Looking for a glasses frame or QR code

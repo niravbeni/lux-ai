@@ -36,8 +36,8 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
     const synth = window.speechSynthesis;
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
-    utterance.pitch = 1.05;
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
     utterance.volume = 1.0;
 
     const voices = synth.getVoices();
