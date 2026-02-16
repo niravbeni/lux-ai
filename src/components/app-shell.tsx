@@ -8,6 +8,7 @@ import { useGLTF } from '@react-three/drei';
 import { useAppStore } from '@/store/app-store';
 import { getProduct, DEFAULT_PRODUCT_ID } from '@/data/product-catalog';
 import LandingScreen from '@/components/landing/landing-screen';
+import CameraBackground from '@/components/ui/camera-background';
 
 // Preload the default 3D model the moment the app shell module loads
 const defaultProduct = getProduct(DEFAULT_PRODUCT_ID);
@@ -63,21 +64,21 @@ export default function AppShell() {
     }
   }, [activeProductId]);
 
-  // Show the colour-morphing background on screens that need it.
-  // Placed here (outside AnimatePresence / motion.div) so `position: fixed`
-  // works relative to the viewport — framer-motion's will-change:transform
-  // on animated children would otherwise create a containing block that
-  // clips the background to 100svh (doesn't extend behind iOS bars).
+  // Show the blurred camera feed on the product page, colour-morphing
+  // background on other immersive screens.
+  const showCameraBg = screen === 'viewer-hub';
   const showMorphBg =
-    screen === 'viewer-hub' || screen === 'details-mode' || screen === 'transition';
+    !showCameraBg && (screen === 'details-mode' || screen === 'transition');
 
   return (
     <>
-      {/* ── Colour-morphing background ──────────────────────────────────
-          position:fixed + inset:0 extends to the FULL physical viewport
-          on iOS, bleeding behind the status bar and Safari toolbar for
-          an immersive feel.  No edge-fades — the blobs can glow
-          naturally under the translucent iOS chrome.                     */}
+      {/* ── Blurred camera background (product page) ───────────────────
+          Full-screen front-camera feed with heavy blur so the 3D frames
+          appear to float in the user's actual space.  Falls back to the
+          dark app background if camera access is unavailable.           */}
+      {showCameraBg && <CameraBackground />}
+
+      {/* ── Colour-morphing background (other screens) ─────────────────*/}
       {showMorphBg && (
         <div
           className="fixed inset-0 colour-morph-bg"
@@ -93,7 +94,7 @@ export default function AppShell() {
           Individual screens use safe-area-inset-* to keep text/buttons
           visible and not clipped by the iOS system chrome.              */}
       <div
-        className={`fixed inset-0 overflow-hidden ${showMorphBg ? '' : 'bg-background'}`}
+        className={`fixed inset-0 overflow-hidden ${showMorphBg || showCameraBg ? '' : 'bg-background'}`}
         style={{ zIndex: 1 }}
       >
         <AnimatePresence mode="wait">
