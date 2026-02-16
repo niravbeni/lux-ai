@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       const errorBody = await response.text();
       console.error('ElevenLabs API error:', response.status, errorBody);
       return NextResponse.json(
-        { error: 'TTS generation failed' },
+        { error: `ElevenLabs ${response.status}: ${errorBody}` },
         { status: response.status }
       );
     }
