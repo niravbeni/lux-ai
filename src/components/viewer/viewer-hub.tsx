@@ -394,14 +394,14 @@ export default function ViewerHub() {
 
             {/* Colourway pills — switchable if colour match has been done */}
             {showColourPills ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap justify-center gap-1.5 px-10 max-w-full">
                 {availablePills.map((cw) => {
                   const isActive = cw.id === activeColourway;
                   return (
                     <button
                       key={cw.id}
                       onClick={() => handleColourwaySwitch(cw.id)}
-                      className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] tracking-wide backdrop-blur-md transition-all duration-300 ${
+                      className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] tracking-wide whitespace-nowrap backdrop-blur-md transition-all duration-300 ${
                         isActive
                           ? 'bg-white/10 text-foreground/60 border border-white/15'
                           : 'bg-white/5 text-foreground/30 border border-white/5 hover:bg-white/8 hover:text-foreground/40'
