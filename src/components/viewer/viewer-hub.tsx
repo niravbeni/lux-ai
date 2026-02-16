@@ -288,10 +288,10 @@ export default function ViewerHub() {
                     exit={{ opacity: 0, x: -8 }}
                     transition={{ duration: 0.25 }}
                     onClick={() => goToFrame('prev')}
-                    className="absolute left-2 z-30 flex h-10 w-10 items-center justify-center text-foreground/30 hover:text-foreground/60 transition-colors active:scale-90"
-                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
+                    className="absolute left-1 z-30 flex h-12 w-12 items-center justify-center text-foreground/35 hover:text-foreground/60 transition-colors active:scale-90"
+                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.25rem)' }}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="15 18 9 12 15 6" />
                     </svg>
                   </motion.button>
@@ -308,10 +308,10 @@ export default function ViewerHub() {
                     exit={{ opacity: 0, x: 8 }}
                     transition={{ duration: 0.25 }}
                     onClick={() => goToFrame('next')}
-                    className="absolute right-2 z-30 flex h-10 w-10 items-center justify-center text-foreground/30 hover:text-foreground/60 transition-colors active:scale-90"
-                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
+                    className="absolute right-1 z-30 flex h-12 w-12 items-center justify-center text-foreground/35 hover:text-foreground/60 transition-colors active:scale-90"
+                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.25rem)' }}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="9 18 15 12 9 6" />
                     </svg>
                   </motion.button>
