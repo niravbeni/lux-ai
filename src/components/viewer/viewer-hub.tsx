@@ -540,30 +540,38 @@ export default function ViewerHub() {
       </div>
 
       {/* ─── BOTTOM CONTROLS ─── */}
-      <motion.div
-        className="relative z-20 flex flex-col gap-6 pb-8 pt-6 px-6 safe-bottom"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      >
-        {!isConversing && assistantMessage && (
-          <motion.div
-            className="px-2"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5, duration: 0.5 }}
-          >
-            <p className="text-foreground/70 text-sm leading-relaxed text-center">
-              {truncateAtSentence(assistantMessage)}
-            </p>
-          </motion.div>
-        )}
+      {isConversing ? (
+        /* Conversation mode: mic button floats at bottom, no container box */
+        <div
+          className="relative z-20 flex flex-col items-center pb-8 safe-bottom"
+        >
+          <VoiceInput />
+        </div>
+      ) : (
+        /* Product mode: full bottom panel */
+        <motion.div
+          className="relative z-20 flex flex-col gap-6 pb-8 pt-6 px-6 safe-bottom"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {assistantMessage && (
+            <motion.div
+              className="px-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5, duration: 0.5 }}
+            >
+              <p className="text-foreground/70 text-sm leading-relaxed text-center">
+                {truncateAtSentence(assistantMessage)}
+              </p>
+            </motion.div>
+          )}
 
-        <VoiceInput />
+          <VoiceInput />
 
-        {!isConversing && <SuggestionPills />}
+          <SuggestionPills />
 
-        {!isConversing && (
           <div className="flex items-center justify-between pt-1">
             <button
               onClick={() => setScreen('scanner')}
@@ -578,8 +586,8 @@ export default function ViewerHub() {
               Notify store assistant
             </button>
           </div>
-        )}
-      </motion.div>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

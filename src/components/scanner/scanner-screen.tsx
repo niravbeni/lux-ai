@@ -94,14 +94,9 @@ export default function ScannerScreen() {
   }, [handleScanSuccess]);
 
   return (
-    <motion.div
-      className="relative h-full w-full overflow-hidden bg-black"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.4 }}
-    >
-      {/* Camera feed */}
+    <div className="relative h-full w-full overflow-hidden bg-black">
+      {/* Camera feed — no fade-in animation so the black bg appears
+           instantly and the camera fills in naturally once ready. */}
       <div
         id="qr-scanner-region"
         className="absolute inset-0 w-full h-full qr-scanner-fullscreen"
@@ -155,12 +150,9 @@ export default function ScannerScreen() {
       )}
 
       {/* Bottom UI */}
-      <motion.div
+      <div
         className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-5 px-6"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.5rem)' }}
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="text-center space-y-2">
           <p className="text-foreground/60 text-xs tracking-[0.2em] uppercase">
@@ -188,7 +180,7 @@ export default function ScannerScreen() {
         >
           Go back
         </button>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
