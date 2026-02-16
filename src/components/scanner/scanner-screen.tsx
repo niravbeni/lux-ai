@@ -11,6 +11,109 @@ import { triggerHaptic } from '@/lib/haptics';
 // Start preloading the GLB model while user is scanning
 useGLTF.preload(productData.modelPath);
 
+// ── Lightweight glasses-frame detector ────────────────────────────────
+// Uses Sobel edge detection on the centre region of the camera feed.
+// Glasses frames have strong, structured edges against a background.
+// Returns a 0-1 confidence score.
+
+function detectFrameConfidence(
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+): number {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (vw === 0 || vh === 0) return 0;
+
+  const size = 160;
+  canvas.width = size;
+  canvas.height = size;
+
+  // Crop the centre square of the video into our small canvas
+  const cropSize = Math.min(vw, vh);
+  const sx = (vw - cropSize) / 2;
+  const sy = (vh - cropSize) / 2;
+  ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, size, size);
+
+  const { data } = ctx.getImageData(0, 0, size, size);
+
+  // Convert to grayscale (0-1 range)
+  const gray = new Float32Array(size * size);
+  for (let i = 0; i < size * size; i++) {
+    gray[i] =
+      (data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114) / 255;
+  }
+
+  // Sobel edge detection — count pixels with significant gradient
+  let strongEdges = 0;
+  let horizontalEdges = 0;
+  const total = (size - 2) * (size - 2);
+
+  for (let y = 1; y < size - 1; y++) {
+    for (let x = 1; x < size - 1; x++) {
+      const idx = y * size + x;
+      // Horizontal gradient (Gx)
+      const gx =
+        -gray[idx - size - 1] +
+        gray[idx - size + 1] -
+        2 * gray[idx - 1] +
+        2 * gray[idx + 1] -
+        gray[idx + size - 1] +
+        gray[idx + size + 1];
+      // Vertical gradient (Gy)
+      const gy =
+        -gray[idx - size - 1] -
+        2 * gray[idx - size] -
+        gray[idx - size + 1] +
+        gray[idx + size - 1] +
+        2 * gray[idx + size] +
+        gray[idx + size + 1];
+
+      const magnitude = Math.sqrt(gx * gx + gy * gy);
+      if (magnitude > 0.18) {
+        strongEdges++;
+        // Horizontal edges dominate in glasses frames (top bar, temple arms)
+        if (Math.abs(gx) < Math.abs(gy) * 0.8) horizontalEdges++;
+      }
+    }
+  }
+
+  const edgeDensity = strongEdges / total;
+  const horizontalRatio = strongEdges > 0 ? horizontalEdges / strongEdges : 0;
+
+  // Also check contrast — standard deviation of grayscale values
+  let sum = 0;
+  let sumSq = 0;
+  for (let i = 0; i < gray.length; i++) {
+    sum += gray[i];
+    sumSq += gray[i] * gray[i];
+  }
+  const mean = sum / gray.length;
+  const variance = sumSq / gray.length - mean * mean;
+  const stdDev = Math.sqrt(Math.max(0, variance));
+
+  // Scoring:
+  // - Edge density in the sweet spot (0.06-0.5): structured object present
+  // - Horizontal edges > 25%: likely a glasses frame shape
+  // - Good contrast (stdDev > 0.08): object stands out from background
+  let confidence = 0;
+
+  if (edgeDensity > 0.06 && edgeDensity < 0.5 && stdDev > 0.08) {
+    // Base confidence from edge density (peaks around 0.15-0.25)
+    const edgeScore = edgeDensity < 0.25
+      ? edgeDensity / 0.25
+      : 1 - (edgeDensity - 0.25) / 0.5;
+    // Horizontal edge bonus
+    const horizBonus = horizontalRatio > 0.25 ? 0.3 : 0;
+    // Contrast bonus
+    const contrastScore = Math.min(1, stdDev / 0.15);
+
+    confidence = Math.min(1, edgeScore * 0.5 + horizBonus + contrastScore * 0.3);
+  }
+
+  return confidence;
+}
+
 export default function ScannerScreen() {
   const setScreen = useAppStore((s) => s.setScreen);
   const setOrbState = useAppStore((s) => s.setOrbState);
@@ -19,7 +122,9 @@ export default function ScannerScreen() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [frameDetected, setFrameDetected] = useState(false);
   const hasScanned = useRef(false);
+  const detectionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleScanSuccess = useCallback(
     (decodedText: string) => {
@@ -28,20 +133,21 @@ export default function ScannerScreen() {
 
       triggerHaptic('success');
       setOrbState('recognition');
-      setScannedProductId(decodedText || 'rayban-meta-smart-glasses');
+      setScannedProductId(decodedText || 'rayban-meta');
 
       // Transition after a brief recognition moment
       setTimeout(() => {
         setScreen('transition');
       }, 600);
     },
-    [setOrbState, setScannedProductId, setScreen]
+    [setOrbState, setScannedProductId, setScreen],
   );
 
   const handleSkipScan = () => {
-    handleScanSuccess('rayban-meta-smart-glasses');
+    handleScanSuccess('rayban-meta');
   };
 
+  // ── QR scanner + frame detection ──────────────────────────────────
   useEffect(() => {
     let mounted = true;
     const scannerId = 'qr-scanner-region';
@@ -63,14 +169,47 @@ export default function ScannerScreen() {
           },
           () => {
             // QR not found in this frame — silent
-          }
+          },
         );
 
         if (mounted) setScanning(true);
+
+        // ── Start glasses frame detection alongside QR scanning ──
+        // Find the video element that html5-qrcode created
+        const videoEl = document.querySelector(
+          `#${scannerId} video`,
+        ) as HTMLVideoElement | null;
+
+        if (videoEl && mounted) {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          let consecutiveHits = 0;
+
+          detectionIntervalRef.current = setInterval(() => {
+            if (hasScanned.current || !ctx || !mounted) return;
+
+            const confidence = detectFrameConfidence(videoEl, canvas, ctx);
+
+            if (confidence > 0.55) {
+              consecutiveHits++;
+              // Show visual feedback after 2 consecutive detections
+              if (consecutiveHits >= 2) setFrameDetected(true);
+              // Trigger after 4 consecutive confident detections (~2 seconds)
+              if (consecutiveHits >= 4) {
+                handleScanSuccess('rayban-meta');
+              }
+            } else {
+              consecutiveHits = Math.max(0, consecutiveHits - 1);
+              if (consecutiveHits < 2) setFrameDetected(false);
+            }
+          }, 500);
+        }
       } catch (err) {
         if (mounted) {
           console.error('Scanner error:', err);
-          setError('Camera access is required to scan frames. Please allow camera access and try again.');
+          setError(
+            'Camera access is required to scan frames. Please allow camera access and try again.',
+          );
         }
       }
     };
@@ -79,16 +218,18 @@ export default function ScannerScreen() {
 
     return () => {
       mounted = false;
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+      }
       const scanner = scannerRef.current;
       if (scanner) {
         try {
           const state = scanner.getState();
-          // Only stop if actually scanning or paused (state 2 = SCANNING, 3 = PAUSED)
           if (state === 2 || state === 3) {
             scanner.stop().catch(() => {});
           }
         } catch {
-          // Scanner not initialized or already stopped — ignore
+          // Scanner not initialized or already stopped
         }
       }
     };
@@ -108,21 +249,47 @@ export default function ScannerScreen() {
         className="absolute inset-0 w-full h-full qr-scanner-fullscreen"
       />
 
-      {/* Scan frame overlay — centered on screen */}
+      {/* Scan frame overlay — centred on screen */}
       {scanning && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none" style={{ paddingBottom: '20vh' }}>
-          {/* Corner brackets */}
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
+          style={{ paddingBottom: '20vh' }}
+        >
+          {/* Corner brackets — glow gold when a frame is detected */}
           <div className="relative w-[200px] h-[200px]">
             <svg
-              className="absolute inset-0 w-full h-full"
+              className="absolute inset-0 w-full h-full transition-all duration-500"
               viewBox="0 0 200 200"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
+              style={{
+                filter: frameDetected ? 'drop-shadow(0 0 8px rgba(201,169,110,0.6))' : 'none',
+              }}
             >
-              <path d="M2 40 L2 2 L40 2" stroke="#C9A96E" strokeWidth="3" strokeLinecap="round" />
-              <path d="M160 2 L198 2 L198 40" stroke="#C9A96E" strokeWidth="3" strokeLinecap="round" />
-              <path d="M198 160 L198 198 L160 198" stroke="#C9A96E" strokeWidth="3" strokeLinecap="round" />
-              <path d="M40 198 L2 198 L2 160" stroke="#C9A96E" strokeWidth="3" strokeLinecap="round" />
+              <path
+                d="M2 40 L2 2 L40 2"
+                stroke={frameDetected ? '#C9A96E' : '#C9A96E'}
+                strokeWidth={frameDetected ? 4 : 3}
+                strokeLinecap="round"
+              />
+              <path
+                d="M160 2 L198 2 L198 40"
+                stroke={frameDetected ? '#C9A96E' : '#C9A96E'}
+                strokeWidth={frameDetected ? 4 : 3}
+                strokeLinecap="round"
+              />
+              <path
+                d="M198 160 L198 198 L160 198"
+                stroke={frameDetected ? '#C9A96E' : '#C9A96E'}
+                strokeWidth={frameDetected ? 4 : 3}
+                strokeLinecap="round"
+              />
+              <path
+                d="M40 198 L2 198 L2 160"
+                stroke={frameDetected ? '#C9A96E' : '#C9A96E'}
+                strokeWidth={frameDetected ? 4 : 3}
+                strokeLinecap="round"
+              />
             </svg>
 
             {/* Scan line animation */}
@@ -137,7 +304,30 @@ export default function ScannerScreen() {
                 ease: 'easeInOut',
               }}
             />
+
+            {/* Detection feedback — subtle pulse when frame spotted */}
+            {frameDetected && (
+              <motion.div
+                className="absolute inset-0 rounded-lg border-2 border-gold/30"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: [0.4, 0.8, 0.4], scale: [0.98, 1.02, 0.98] }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            )}
           </div>
+
+          {/* Detection label */}
+          {frameDetected && (
+            <motion.p
+              className="absolute text-gold/80 text-xs tracking-widest uppercase"
+              style={{ bottom: 'calc(20vh + 220px)' }}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              Frame detected
+            </motion.p>
+          )}
         </div>
       )}
 
@@ -146,10 +336,7 @@ export default function ScannerScreen() {
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80 p-8">
           <div className="glass-card rounded-2xl p-6 text-center max-w-sm">
             <p className="text-foreground/70 text-sm mb-4">{error}</p>
-            <button
-              onClick={handleSkipScan}
-              className="text-gold text-sm font-medium"
-            >
+            <button onClick={handleSkipScan} className="text-gold text-sm font-medium">
               Continue without scanning
             </button>
           </div>
@@ -174,7 +361,7 @@ export default function ScannerScreen() {
           </p>
         </div>
 
-        {/* Skip CTA — matches landing button style */}
+        {/* Skip CTA */}
         <button
           onClick={handleSkipScan}
           className="group relative overflow-hidden rounded-full px-8 py-3.5 transition-all duration-300 active:scale-95"
