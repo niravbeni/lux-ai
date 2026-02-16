@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/text-to-speech';
 
-// Default to a warm, professional voice
-const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Rachel
+// Charlotte — warm, friendly, conversational female voice
+const DEFAULT_VOICE_ID = 'XB0fDUnXU5powFXDhCwa';
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,9 +38,9 @@ export async function POST(request: NextRequest) {
           text,
           model_id: 'eleven_multilingual_v2',
           voice_settings: {
-            stability: 0.6,
-            similarity_boost: 0.75,
-            style: 0.2,
+            stability: 0.45,
+            similarity_boost: 0.7,
+            style: 0.45,
             use_speaker_boost: true,
           },
         }),
