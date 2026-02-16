@@ -55,7 +55,11 @@ export default function ViewerHub() {
   const frameHistory = useAppStore((s) => s.frameHistory);
   const frameHistoryIndex = useAppStore((s) => s.frameHistoryIndex);
   const navigateCarousel = useAppStore((s) => s.navigateCarousel);
+  const frameColourways = useAppStore((s) => s.frameColourways);
+  const frameAiColourways = useAppStore((s) => s.frameAiColourways);
   const [slideDirection, setSlideDirection] = useState(0);
+  const canGoPrev = frameHistoryIndex > 0;
+  const canGoNext = frameHistoryIndex < frameHistory.length - 1;
   const product = getProduct(activeProductId);
 
   // After each product switch, reset slide direction to "forward" so that
@@ -108,6 +112,31 @@ export default function ViewerHub() {
     speak(msg).catch(() => {});
   }, [recommendedProductId, setActiveProductId, setRecommendedProductId, setIsConversing, setStreamingText, setAssistantMessage, setActiveColourway]);
 
+  // ── Shared carousel navigation ───────────────────────────────────────
+  // Restores per-frame colourway and clears cross-frame AI recommendation
+  const goToFrame = useCallback(
+    (direction: 'prev' | 'next') => {
+      const targetIndex = direction === 'prev' ? frameHistoryIndex - 1 : frameHistoryIndex + 1;
+      if (targetIndex < 0 || targetIndex >= frameHistory.length) return;
+
+      const targetId = frameHistory[targetIndex];
+      const targetProduct = getProduct(targetId);
+      setSlideDirection(direction === 'next' ? 1 : -1);
+
+      // Restore saved colourway for the target frame, or fall back to its default
+      const savedCw = frameColourways[targetId];
+      setActiveColourway(savedCw ?? targetProduct.colourways[0]?.id ?? '');
+
+      // Restore AI recommendation scoped to the target frame (or clear it)
+      const savedAiCw = frameAiColourways[targetId] ?? null;
+      setAiRecommendedColourway(savedAiCw);
+
+      navigateCarousel(direction);
+      setAssistantMessage(`Here's the ${targetProduct.name}.`);
+    },
+    [frameHistory, frameHistoryIndex, frameColourways, frameAiColourways, navigateCarousel, setActiveColourway, setAiRecommendedColourway, setAssistantMessage],
+  );
+
   // ── Carousel swipe handler ──────────────────────────────────────────
   const SWIPE_THRESHOLD = 60;
   const handlePanEnd = useCallback(
@@ -118,28 +147,12 @@ export default function ViewerHub() {
       if (!isHorizontalSwipe) return;
 
       if (offset.x < -SWIPE_THRESHOLD || (velocity.x < -300 && offset.x < -20)) {
-        // Swiped left → next frame
-        if (frameHistoryIndex < frameHistory.length - 1) {
-          setSlideDirection(1);
-          const nextProduct = getProduct(frameHistory[frameHistoryIndex + 1]);
-          setActiveColourway(nextProduct.colourways[0]?.id ?? '');
-          navigateCarousel('next');
-          const msg = `Here's the ${nextProduct.name}.`;
-          setAssistantMessage(msg);
-        }
+        if (canGoNext) goToFrame('next');
       } else if (offset.x > SWIPE_THRESHOLD || (velocity.x > 300 && offset.x > 20)) {
-        // Swiped right → previous frame
-        if (frameHistoryIndex > 0) {
-          setSlideDirection(-1);
-          const prevProduct = getProduct(frameHistory[frameHistoryIndex - 1]);
-          setActiveColourway(prevProduct.colourways[0]?.id ?? '');
-          navigateCarousel('prev');
-          const msg = `Here's the ${prevProduct.name}.`;
-          setAssistantMessage(msg);
-        }
+        if (canGoPrev) goToFrame('prev');
       }
     },
-    [isConversing, frameHistory, frameHistoryIndex, navigateCarousel, setActiveColourway, setAssistantMessage],
+    [isConversing, canGoNext, canGoPrev, goToFrame],
   );
 
   const colourResult = useAppStore((s) => s.colourResult);
@@ -150,7 +163,7 @@ export default function ViewerHub() {
 
   // Build the list of colourway pills to show in the header:
   // Always show the default (first) colourway, plus any recommended colourways from
-  // colour match AND/OR AI assistant recommendations.
+  // colour match AND/OR AI assistant recommendations SCOPED TO THIS FRAME.
   const defaultCw = product.colourways[0];
   const availablePills = [defaultCw];
   const addedIds = new Set([defaultCw?.id]);
@@ -161,9 +174,10 @@ export default function ViewerHub() {
     if (!addedIds.has(colourResult.alternative.id)) { availablePills.push(colourResult.alternative); addedIds.add(colourResult.alternative.id); }
   }
 
-  // Add AI-recommended colourway — look up from universal pool (works across frames)
-  if (aiRecommendedColourway && !addedIds.has(aiRecommendedColourway)) {
-    const aiCw = product.colourways.find((c) => c.id === aiRecommendedColourway) ?? getColourway(aiRecommendedColourway);
+  // Add AI-recommended colourway — only if it was recommended for THIS frame
+  const thisFrameAiCw = frameAiColourways[activeProductId] ?? null;
+  if (thisFrameAiCw && !addedIds.has(thisFrameAiCw)) {
+    const aiCw = product.colourways.find((c) => c.id === thisFrameAiCw) ?? getColourway(thisFrameAiCw);
     if (aiCw) { availablePills.push(aiCw); addedIds.add(aiCw.id); }
   }
 
@@ -257,6 +271,49 @@ export default function ViewerHub() {
             </motion.div>
           </AnimatePresence>
 
+          {/* Carousel arrows — left / right edges */}
+          {frameHistory.length > 1 && (
+            <>
+              {/* Left arrow (previous frame) */}
+              <AnimatePresence>
+                {canGoPrev && (
+                  <motion.button
+                    key="arrow-prev"
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{ duration: 0.25 }}
+                    onClick={() => goToFrame('prev')}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-foreground/40 hover:text-foreground/70 hover:bg-white/10 transition-all active:scale-90"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </motion.button>
+                )}
+              </AnimatePresence>
+
+              {/* Right arrow (next frame) */}
+              <AnimatePresence>
+                {canGoNext && (
+                  <motion.button
+                    key="arrow-next"
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 8 }}
+                    transition={{ duration: 0.25 }}
+                    onClick={() => goToFrame('next')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-foreground/40 hover:text-foreground/70 hover:bg-white/10 transition-all active:scale-90"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </>
+          )}
+
           {/* Product name + carousel dots + colourway pills */}
           <div
             className="absolute left-0 right-0 flex flex-col items-center gap-2 z-20"
@@ -286,7 +343,10 @@ export default function ViewerHub() {
                       if (i === frameHistoryIndex) return;
                       setSlideDirection(i > frameHistoryIndex ? 1 : -1);
                       const targetProduct = getProduct(frameHistory[i]);
-                      setActiveColourway(targetProduct.colourways[0]?.id ?? '');
+                      // Restore saved colourway for target frame
+                      const savedCw = frameColourways[fId];
+                      setActiveColourway(savedCw ?? targetProduct.colourways[0]?.id ?? '');
+                      setAiRecommendedColourway(frameAiColourways[fId] ?? null);
                       useAppStore.getState().setFrameHistoryIndex(i);
                       setAssistantMessage(`Here's the ${targetProduct.name}.`);
                     }}

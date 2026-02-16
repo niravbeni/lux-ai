@@ -67,9 +67,11 @@ interface AppState {
   navigateCarousel: (direction: 'prev' | 'next') => void;
   setFrameHistoryIndex: (index: number) => void;
 
-  // Active colourway
+  // Active colourway (per-frame tracking)
   activeColourway: string;
   setActiveColourway: (id: string) => void;
+  frameColourways: Record<string, string>;
+  frameAiColourways: Record<string, string>;
 
   // Results
   colourResult: ColourResult | null;
@@ -191,9 +193,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  // Active colourway
+  // Active colourway — also persisted per frame so swipes restore each frame's selection
   activeColourway: 'shiny-black',
-  setActiveColourway: (activeColourway) => set({ activeColourway }),
+  frameColourways: { [DEFAULT_PRODUCT_ID]: 'shiny-black' },
+  frameAiColourways: {},
+  setActiveColourway: (activeColourway) => {
+    const pid = get().activeProductId;
+    set({
+      activeColourway,
+      frameColourways: { ...get().frameColourways, [pid]: activeColourway },
+    });
+  },
 
   // Results
   colourResult: null,
@@ -233,7 +243,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   recommendedProductId: null,
   setRecommendedProductId: (recommendedProductId) => set({ recommendedProductId }),
 
-  // AI-recommended colourway
+  // AI-recommended colourway — scoped to the current frame
   aiRecommendedColourway: null,
-  setAiRecommendedColourway: (aiRecommendedColourway) => set({ aiRecommendedColourway }),
+  setAiRecommendedColourway: (aiRecommendedColourway) => {
+    const pid = get().activeProductId;
+    const frameAiColourways = { ...get().frameAiColourways };
+    if (aiRecommendedColourway) {
+      frameAiColourways[pid] = aiRecommendedColourway;
+    }
+    set({ aiRecommendedColourway, frameAiColourways });
+  },
 }));
