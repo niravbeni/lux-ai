@@ -539,15 +539,19 @@ export default function ViewerHub() {
         </div>
       </div>
 
-      {/* ─── BOTTOM CONTROLS ─── */}
-      {isConversing ? (
-        /* Conversation mode: mic button floats at bottom, no container box */
+      {/* ─── Conversation mode: mic button absolutely positioned so the
+           orb fills the entire screen with no flex boundary line ─── */}
+      {isConversing && (
         <div
-          className="relative z-20 flex flex-col items-center pb-8 safe-bottom"
+          className="absolute left-0 right-0 z-30 flex flex-col items-center"
+          style={{ bottom: 'max(2rem, calc(env(safe-area-inset-bottom, 0px) + 1.5rem))' }}
         >
           <VoiceInput />
         </div>
-      ) : (
+      )}
+
+      {/* ─── BOTTOM CONTROLS (product mode only) ─── */}
+      {!isConversing && (
         /* Product mode: full bottom panel */
         <motion.div
           className="relative z-20 flex flex-col gap-6 pb-8 pt-6 px-6 safe-bottom"
