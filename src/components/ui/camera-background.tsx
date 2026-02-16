@@ -7,8 +7,12 @@ import { useEffect, useRef, useState } from 'react';
  * On mobile (Android / iOS) uses the back camera so the background
  * reflects the scene in front of the user. On desktop falls back to
  * the front camera. Transparent fallback if camera access is denied.
+ *
+ * Accepts a `visible` prop so the parent can fade it in/out without
+ * unmounting — this keeps the camera stream alive across transitions
+ * and avoids the costly getUserMedia restart.
  */
-export default function CameraBackground() {
+export default function CameraBackground({ visible = true }: { visible?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [ready, setReady] = useState(false);
@@ -60,12 +64,14 @@ export default function CameraBackground() {
       autoPlay
       playsInline
       muted
-      className="fixed inset-0 w-full h-full transition-opacity duration-1000"
+      className="fixed inset-0 w-full h-full"
       style={{
         objectFit: 'cover',
         transform: `${isFrontCamera ? 'scaleX(-1) ' : ''}scale(1.15)`,
         filter: 'blur(40px) brightness(0.5) saturate(1.2)',
-        opacity: ready ? 1 : 0,
+        opacity: ready && visible ? 1 : 0,
+        transition: 'opacity 0.6s ease-in-out',
+        willChange: 'opacity',
         zIndex: 0,
         pointerEvents: 'none',
       }}

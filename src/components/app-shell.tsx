@@ -65,31 +65,51 @@ export default function AppShell() {
     }
   }, [activeProductId]);
 
-  // Show the blurred camera feed on the product page (but NOT during
-  // conversation mode — the orb/agent page keeps the colour-morph bg).
-  const showCameraBg = screen === 'viewer-hub' && !isConversing;
+  // On the viewer-hub screen, both backgrounds stay mounted so we can
+  // cross-fade between them without destroying/recreating the camera
+  // stream.  The camera feed shows on the product view; the colour-morph
+  // background fades in when the user enters conversation mode.
+  const isViewerHub = screen === 'viewer-hub';
+  const showCameraBg = isViewerHub;                       // always mounted on viewer-hub
+  const cameraBgVisible = isViewerHub && !isConversing;   // faded in/out via opacity
   const showMorphBg =
-    (screen === 'viewer-hub' && isConversing) ||
+    (isViewerHub && isConversing) ||
     screen === 'details-mode' ||
     screen === 'transition';
+  const hasBg = showCameraBg || showMorphBg;
 
   return (
     <>
       {/* ── Blurred camera background (product page) ───────────────────
-          Full-screen front-camera feed with heavy blur so the 3D frames
-          appear to float in the user's actual space.  Falls back to the
-          dark app background if camera access is unavailable.           */}
-      {showCameraBg && <CameraBackground />}
+          Stays mounted for the entire viewer-hub lifetime so the camera
+          stream is never destroyed.  The `visible` prop cross-fades it
+          out when entering conversation mode.                           */}
+      {showCameraBg && <CameraBackground visible={cameraBgVisible} />}
 
-      {/* ── Colour-morphing background (other screens) ─────────────────*/}
-      {showMorphBg && (
+      {/* ── Colour-morphing background (conversation + other screens) ──*/}
+      {isViewerHub ? (
+        /* On viewer-hub: always mounted, opacity-driven cross-fade */
+        <div
+          className="fixed inset-0 colour-morph-bg"
+          style={{
+            zIndex: 0,
+            pointerEvents: 'none',
+            opacity: isConversing ? 1 : 0,
+            transition: 'opacity 0.6s ease-in-out',
+            willChange: 'opacity',
+          }}
+        >
+          <div className="colour-morph-blob-gold" />
+        </div>
+      ) : showMorphBg ? (
+        /* On other screens: conditional mount (no camera to preserve) */
         <div
           className="fixed inset-0 colour-morph-bg"
           style={{ zIndex: 0, pointerEvents: 'none' }}
         >
           <div className="colour-morph-blob-gold" />
         </div>
-      )}
+      ) : null}
 
       {/* ── Content container ───────────────────────────────────────────
           fixed inset-0 = covers the full physical viewport so the app
@@ -97,7 +117,7 @@ export default function AppShell() {
           Individual screens use safe-area-inset-* to keep text/buttons
           visible and not clipped by the iOS system chrome.              */}
       <div
-        className={`fixed inset-0 overflow-hidden ${showMorphBg || showCameraBg ? '' : 'bg-background'}`}
+        className={`fixed inset-0 overflow-hidden ${hasBg ? '' : 'bg-background'}`}
         style={{ zIndex: 1 }}
       >
         <AnimatePresence mode="wait">

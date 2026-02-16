@@ -204,10 +204,12 @@ export default function ViewerHub() {
 
         {/* 3D Frame Canvas — swipeable carousel */}
         <motion.div
-          className="absolute inset-0 transition-opacity duration-500 ease-in-out"
+          className="absolute inset-0"
+          animate={{ opacity: isConversing ? 0 : 1 }}
+          transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
           style={{
-            opacity: isConversing ? 0 : 1,
             pointerEvents: isConversing ? 'none' : 'auto',
+            willChange: 'opacity',
           }}
           onPanEnd={handlePanEnd}
         >
@@ -427,12 +429,14 @@ export default function ViewerHub() {
           </div>
         </motion.div>
 
-        {/* AI Orb overlay — separate Canvas, CSS layered on top */}
-        <div
-          className="absolute inset-0 transition-opacity duration-500 ease-in-out"
+        {/* AI Orb overlay — separate Canvas, layered on top */}
+        <motion.div
+          className="absolute inset-0"
+          animate={{ opacity: isConversing ? 1 : 0 }}
+          transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
           style={{
-            opacity: isConversing ? 1 : 0,
             pointerEvents: isConversing ? 'auto' : 'none',
+            willChange: 'opacity',
           }}
         >
           <OrbCanvas
@@ -524,7 +528,7 @@ export default function ViewerHub() {
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* ─── BOTTOM CONTROLS ─── */}
