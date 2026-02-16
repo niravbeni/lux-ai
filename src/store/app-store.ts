@@ -71,7 +71,7 @@ interface AppState {
   activeColourway: string;
   setActiveColourway: (id: string) => void;
   frameColourways: Record<string, string>;
-  frameAiColourways: Record<string, string>;
+  frameAiColourways: Record<string, string[]>;
 
   // Results
   colourResult: ColourResult | null;
@@ -243,13 +243,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   recommendedProductId: null,
   setRecommendedProductId: (recommendedProductId) => set({ recommendedProductId }),
 
-  // AI-recommended colourway — scoped to the current frame
+  // AI-recommended colourway — scoped to the current frame, accumulates all recommendations
   aiRecommendedColourway: null,
   setAiRecommendedColourway: (aiRecommendedColourway) => {
     const pid = get().activeProductId;
     const frameAiColourways = { ...get().frameAiColourways };
     if (aiRecommendedColourway) {
-      frameAiColourways[pid] = aiRecommendedColourway;
+      const existing = frameAiColourways[pid] ?? [];
+      if (!existing.includes(aiRecommendedColourway)) {
+        frameAiColourways[pid] = [...existing, aiRecommendedColourway];
+      }
     }
     set({ aiRecommendedColourway, frameAiColourways });
   },

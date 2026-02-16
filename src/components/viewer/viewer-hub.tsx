@@ -123,15 +123,17 @@ export default function ViewerHub() {
       const targetProduct = getProduct(targetId);
       setSlideDirection(direction === 'next' ? 1 : -1);
 
+      // Navigate first so activeProductId updates, then restore colourway
+      navigateCarousel(direction);
+
       // Restore saved colourway for the target frame, or fall back to its default
       const savedCw = frameColourways[targetId];
       setActiveColourway(savedCw ?? targetProduct.colourways[0]?.id ?? '');
 
-      // Restore AI recommendation scoped to the target frame (or clear it)
-      const savedAiCw = frameAiColourways[targetId] ?? null;
-      setAiRecommendedColourway(savedAiCw);
+      // Clear the global aiRecommendedColourway — per-frame data lives in
+      // frameAiColourways and the pill builder reads from there directly.
+      setAiRecommendedColourway(null);
 
-      navigateCarousel(direction);
       setAssistantMessage(`Here's the ${targetProduct.name}.`);
     },
     [frameHistory, frameHistoryIndex, frameColourways, frameAiColourways, navigateCarousel, setActiveColourway, setAiRecommendedColourway, setAssistantMessage],
@@ -174,11 +176,13 @@ export default function ViewerHub() {
     if (!addedIds.has(colourResult.alternative.id)) { availablePills.push(colourResult.alternative); addedIds.add(colourResult.alternative.id); }
   }
 
-  // Add AI-recommended colourway — only if it was recommended for THIS frame
-  const thisFrameAiCw = frameAiColourways[activeProductId] ?? null;
-  if (thisFrameAiCw && !addedIds.has(thisFrameAiCw)) {
-    const aiCw = product.colourways.find((c) => c.id === thisFrameAiCw) ?? getColourway(thisFrameAiCw);
-    if (aiCw) { availablePills.push(aiCw); addedIds.add(aiCw.id); }
+  // Add ALL AI-recommended colourways for THIS frame (accumulates across conversation)
+  const thisFrameAiCws = frameAiColourways[activeProductId] ?? [];
+  for (const cwId of thisFrameAiCws) {
+    if (!addedIds.has(cwId)) {
+      const aiCw = product.colourways.find((c) => c.id === cwId) ?? getColourway(cwId);
+      if (aiCw) { availablePills.push(aiCw); addedIds.add(aiCw.id); }
+    }
   }
 
   const showColourPills = availablePills.length > 1;
@@ -284,10 +288,10 @@ export default function ViewerHub() {
                     exit={{ opacity: 0, x: -8 }}
                     transition={{ duration: 0.25 }}
                     onClick={() => goToFrame('prev')}
-                    className="absolute left-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-foreground/40 hover:text-foreground/70 hover:bg-white/10 transition-all active:scale-90"
-                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+                    className="absolute left-2 z-30 flex h-10 w-10 items-center justify-center text-foreground/30 hover:text-foreground/60 transition-colors active:scale-90"
+                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="15 18 9 12 15 6" />
                     </svg>
                   </motion.button>
@@ -304,10 +308,10 @@ export default function ViewerHub() {
                     exit={{ opacity: 0, x: 8 }}
                     transition={{ duration: 0.25 }}
                     onClick={() => goToFrame('next')}
-                    className="absolute right-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-foreground/40 hover:text-foreground/70 hover:bg-white/10 transition-all active:scale-90"
-                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+                    className="absolute right-2 z-30 flex h-10 w-10 items-center justify-center text-foreground/30 hover:text-foreground/60 transition-colors active:scale-90"
+                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="9 18 15 12 9 6" />
                     </svg>
                   </motion.button>
@@ -346,10 +350,10 @@ export default function ViewerHub() {
                       setSlideDirection(i > frameHistoryIndex ? 1 : -1);
                       const targetProduct = getProduct(frameHistory[i]);
                       // Restore saved colourway for target frame
+                      useAppStore.getState().setFrameHistoryIndex(i);
                       const savedCw = frameColourways[fId];
                       setActiveColourway(savedCw ?? targetProduct.colourways[0]?.id ?? '');
-                      setAiRecommendedColourway(frameAiColourways[fId] ?? null);
-                      useAppStore.getState().setFrameHistoryIndex(i);
+                      setAiRecommendedColourway(null);
                       setAssistantMessage(`Here's the ${targetProduct.name}.`);
                     }}
                     className="relative p-1 transition-all"

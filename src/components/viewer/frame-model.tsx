@@ -142,11 +142,13 @@ export default function FrameModel({ modelPath }: FrameModelProps) {
     if (!cw) return;
 
     const isDefault = cw.id === product.colourways[0]?.id;
+    const isBuiltIn = product.colourways.some((c) => c.id === cw.id);
 
-    // Dark colourways (matte-black, etc.) keep the baked-in texture for
-    // realistic darkness and only tweak roughness / metalness.
-    // Lighter / coloured colourways strip the texture and apply pure colour.
-    const tintOnly = !isDefault && isDarkColour(cw.color);
+    // "Tint only" mode keeps the baked-in texture and only tweaks roughness /
+    // metalness. This is ONLY for built-in dark variants (matte-black, etc.)
+    // where the texture already provides the correct darkness level.
+    // Custom / dynamically-created colours always get full colour replacement.
+    const tintOnly = !isDefault && isBuiltIn && isDarkColour(cw.color);
 
     clonedScene.traverse((child) => {
       if (!(child as THREE.Mesh).isMesh) return;
