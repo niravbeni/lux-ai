@@ -2,16 +2,23 @@
 
 import { useAppStore } from '@/store/app-store';
 
-let currentAudio: HTMLAudioElement | null = null;
 let speakId = 0;
-// Resolve function for the current speak() promise — allows stopSpeaking()
-// to unblock any code awaiting speak() (e.g., sendToChat auto-exit logic).
 let pendingResolve: (() => void) | null = null;
-// Interval that calls speechSynthesis.resume() — iOS Safari silently pauses
-// long utterances and needs periodic nudging.
 let resumeTimer: ReturnType<typeof setInterval> | null = null;
-// Whether HTMLAudioElement.play() has been unlocked by a user gesture.
-let audioUnlocked = false;
+
+// Single shared Audio element — reused across all ElevenLabs playback.
+// iOS Safari tracks audio-unlock per-element: only an Audio element that
+// was .play()'d during a user gesture is allowed to play later async.
+// By reusing ONE element we keep it permanently "blessed".
+let sharedAudio: HTMLAudioElement | null = null;
+let lastObjectUrl: string | null = null;
+
+function getSharedAudio(): HTMLAudioElement {
+  if (!sharedAudio && typeof window !== 'undefined') {
+    sharedAudio = new Audio();
+  }
+  return sharedAudio!;
+}
 
 function setPlaying(active: boolean) {
   const { setIsSpeaking, setOrbState } = useAppStore.getState();
@@ -23,6 +30,13 @@ function clearResumeTimer() {
   if (resumeTimer !== null) {
     clearInterval(resumeTimer);
     resumeTimer = null;
+  }
+}
+
+function revokeLastUrl() {
+  if (lastObjectUrl) {
+    URL.revokeObjectURL(lastObjectUrl);
+    lastObjectUrl = null;
   }
 }
 
@@ -43,7 +57,6 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
     utterance.volume = 1.0;
 
     // Pick the best-sounding English voice available, in priority order.
-    // Avoid "Karen" (Australian) — it sounds robotic.
     const voices = synth.getVoices();
     const voicePrefs = [
       'Samantha',                   // iOS / macOS — US English, natural
@@ -59,7 +72,6 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
       preferred = voices.find((v) => v.lang.startsWith('en') && v.name.includes(name));
       if (preferred) break;
     }
-    // Last resort: any English voice that isn't Karen
     if (!preferred) {
       preferred = voices.find((v) => v.lang.startsWith('en') && !v.name.includes('Karen'));
     }
@@ -81,8 +93,6 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
     pendingResolve = resolve;
     synth.speak(utterance);
 
-    // iOS Safari / Chrome workaround: the browser can silently pause
-    // speechSynthesis after ~15 s.  Periodically call resume() to keep it alive.
     clearResumeTimer();
     resumeTimer = setInterval(() => {
       if (!synth.speaking) {
@@ -95,22 +105,21 @@ function speakWithBrowser(text: string, id: number): Promise<void> {
 }
 
 // ── Main speak function ───────────────────────────────────────────────
-// Returns a promise that resolves when audio FINISHES playing (not starts).
 export async function speak(text: string): Promise<void> {
   const id = ++speakId;
 
-  // Stop any currently playing audio and resolve any pending promise
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio = null;
+  // Stop any currently playing audio
+  const audio = sharedAudio;
+  if (audio) {
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
   }
+  revokeLastUrl();
 
-  // Only cancel speechSynthesis if it's actually active — calling cancel()
-  // when idle can break subsequent speaks on iOS Safari.
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
   if (synth?.speaking || synth?.pending) {
     synth.cancel();
-    // iOS needs a brief tick after cancel() before a new speak() will work
     await new Promise((r) => setTimeout(r, 80));
   }
   clearResumeTimer();
@@ -145,32 +154,32 @@ export async function speak(text: string): Promise<void> {
     if (id !== speakId) return;
 
     const audioUrl = URL.createObjectURL(audioBlob);
-    const audio = new Audio(audioUrl);
-    currentAudio = audio;
+    lastObjectUrl = audioUrl;
+
+    // Reuse the shared (pre-unlocked) Audio element
+    const player = getSharedAudio();
+    player.src = audioUrl;
+    player.volume = 1.0;
 
     await new Promise<void>((resolve) => {
       const cleanup = () => {
-        if (currentAudio === audio) currentAudio = null;
         if (id === speakId) setPlaying(false);
-        if (audioUrl) URL.revokeObjectURL(audioUrl);
+        revokeLastUrl();
         pendingResolve = null;
         resolve();
       };
 
-      audio.onended = cleanup;
-      audio.onerror = cleanup;
-
-      // Store the resolve so stopSpeaking() can unblock us
+      player.onended = cleanup;
+      player.onerror = cleanup;
       pendingResolve = resolve;
 
-      audio.play()
+      player.play()
         .then(() => {
           if (id === speakId) setPlaying(true);
         })
         .catch((err) => {
           console.warn('[TTS] audio.play() blocked — falling back to browser voice', err?.message);
-          if (currentAudio === audio) currentAudio = null;
-          if (audioUrl) URL.revokeObjectURL(audioUrl);
+          revokeLastUrl();
           pendingResolve = null;
           speakWithBrowser(text, id).then(resolve);
         });
@@ -182,51 +191,43 @@ export async function speak(text: string): Promise<void> {
   }
 }
 
-// Call from a user-gesture handler (e.g. onPointerDown) to "unlock"
-// speechSynthesis on iOS Safari — iOS requires a user-initiated speak()
-// before allowing async speaks.  Without this, the fallback TTS is silent.
+// Call from a user-gesture handler to "unlock" both HTMLAudioElement and
+// speechSynthesis on iOS Safari.  iOS requires play()/speak() during a
+// user-initiated event before allowing async calls later.
+export function unlockAudioPlayback(): void {
+  if (typeof window === 'undefined') return;
+  const player = getSharedAudio();
+  // Play a tiny silent WAV on the shared element — this "blesses" it
+  // so subsequent async .play() calls are allowed by iOS.
+  player.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+  player.volume = 0.01;
+  player.play().catch(() => {});
+}
+
 export function warmUpTTS(): void {
   if (typeof window === 'undefined') return;
   const synth = window.speechSynthesis;
   if (!synth) return;
-  // Speak a nearly-silent space character at max rate — completes instantly.
   const u = new SpeechSynthesisUtterance(' ');
   u.volume = 0.01;
   u.rate = 10;
   synth.speak(u);
 }
 
-// Call from a user-gesture handler to unlock HTMLAudioElement.play() on iOS.
-// iOS Safari blocks audio.play() unless it was first triggered during a
-// user-initiated event.  Playing a tiny silent WAV "unlocks" the session
-// so that later async speak() calls can use the ElevenLabs audio path.
-export function unlockAudioPlayback(): void {
-  if (audioUnlocked || typeof window === 'undefined') return;
-  try {
-    const a = new Audio();
-    // Minimal valid WAV: 44-byte header, 0 data frames
-    a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
-    a.volume = 0.01;
-    a.play()
-      .then(() => { audioUnlocked = true; })
-      .catch(() => {});
-  } catch {
-    // Ignore — not critical, will fall back to browser speech
-  }
-}
-
 export function stopSpeaking(): void {
   speakId++;
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio = null;
+  const audio = sharedAudio;
+  if (audio) {
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
   }
+  revokeLastUrl();
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
   if (synth?.speaking || synth?.pending) {
     synth.cancel();
   }
   clearResumeTimer();
-  // Resolve any pending speak() promise so callers (e.g., sendToChat) don't hang
   if (pendingResolve) {
     pendingResolve();
     pendingResolve = null;
