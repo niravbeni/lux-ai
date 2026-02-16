@@ -212,11 +212,14 @@ export default function ViewerHub() {
       <div className="relative z-10 flex-1 w-full min-h-0">
 
         {/* 3D Frame Canvas — swipeable carousel.
-             Always stays visible (opacity 1). When the orb appears it
-             overlays on top with a dark backdrop — no fade-out needed. */}
+             Hidden when conversing, shown when not. Simple CSS toggle. */}
+        <div
+          className="absolute inset-0"
+          style={{ display: isConversing ? 'none' : 'block' }}
+          onPointerUp={() => {}} // keeps React event delegation
+        >
         <motion.div
           className="absolute inset-0"
-          style={{ pointerEvents: isConversing ? 'none' : 'auto' }}
           onPanEnd={handlePanEnd}
         >
           <AnimatePresence mode="wait" custom={slideDirection}>
@@ -434,35 +437,13 @@ export default function ViewerHub() {
             )}
           </div>
         </motion.div>
+        </div>
 
-        {/* Dark backdrop — dims the product page when the orb is open.
-             Pure CSS transition, no framer-motion to avoid animation
-             frame glitches. */}
-        <div
-          className="absolute inset-0 bg-black/80"
-          style={{
-            zIndex: 15,
-            opacity: isConversing ? 1 : 0,
-            transition: 'opacity 0.35s ease',
-            pointerEvents: 'none',
-          }}
-        />
-
-        {/* AI Orb overlay — layered on top of the backdrop.
-             Pure CSS visibility + opacity toggle. The OrbCanvas is only
-             rendered once conversation mode has been entered at least once
-             to avoid any flash on initial mount. */}
+        {/* AI Orb — shown when conversing, hidden when not.
+             Simple CSS display toggle, no transitions or overlays. */}
         <div
           className="absolute inset-0"
-          style={{
-            zIndex: 20,
-            opacity: isConversing ? 1 : 0,
-            visibility: isConversing ? 'visible' : 'hidden',
-            transition: isConversing
-              ? 'opacity 0.35s ease, visibility 0s'
-              : 'opacity 0.3s ease, visibility 0s 0.3s',
-            pointerEvents: isConversing ? 'auto' : 'none',
-          }}
+          style={{ display: isConversing ? 'block' : 'none' }}
         >
           {hasEnteredConversation && (
             <OrbCanvas
