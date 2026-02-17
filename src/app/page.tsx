@@ -7,7 +7,7 @@ export default function Home() {
   return (
     <Suspense fallback={
       <div className="flex w-full h-full items-center justify-center bg-background">
-        <div className="h-8 w-8 rounded-full border-2 border-[#C9A96E]/30 border-t-[#C9A96E] animate-spin" />
+        <div className="h-8 w-8 rounded-full border-2 border-gold/30 border-t-gold animate-spin" />
       </div>
     }>
       <AppShell />

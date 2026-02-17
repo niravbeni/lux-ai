@@ -26,6 +26,17 @@ export default function LandingScreen() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.6 }}
     >
+      {/* Top title */}
+      <motion.p
+        className="relative z-20 text-foreground/40 text-xs tracking-[0.2em]"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)' }}
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.6 }}
+      >
+        FUTURE STORE EXPERIENCE
+      </motion.p>
+
       {/* Orb — covers entire screen so emanation bleeds behind text */}
       <div className="absolute inset-0 z-10">
         <OrbCanvas
@@ -89,10 +100,6 @@ export default function LandingScreen() {
           </span>
         </button>
 
-        {/* Subtle brand mark */}
-        <p className="text-foreground/15 text-[10px] tracking-[0.15em]">
-          FUTURE STORE EXPERIENCE
-        </p>
       </motion.div>
     </motion.div>
   );

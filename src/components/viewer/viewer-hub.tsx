@@ -46,6 +46,7 @@ export default function ViewerHub() {
   const transcript = useAppStore((s) => s.transcript);
   const isListening = useAppStore((s) => s.isListening);
   const recommendedProductId = useAppStore((s) => s.recommendedProductId);
+  const isCameraLight = useAppStore((s) => s.isCameraLight);
   const setActiveProductId = useAppStore((s) => s.setActiveProductId);
   const setRecommendedProductId = useAppStore((s) => s.setRecommendedProductId);
   const clearChatHistory = useAppStore((s) => s.clearChatHistory);
@@ -196,6 +197,9 @@ export default function ViewerHub() {
 
   const showColourPills = availablePills.length > 1;
 
+  // When camera bg is light AND we're in product mode, switch to dark text
+  const light = isCameraLight && !isConversing;
+
   const handleColourwaySwitch = (cwId: string) => {
     setActiveColourway(cwId);
   };
@@ -244,7 +248,7 @@ export default function ViewerHub() {
               transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
             >
               <Canvas
-                camera={{ position: [0, 0.15, 4.5], fov: 30 }}
+                camera={{ position: [0, 0.15, 3.8], fov: 30 }}
                 gl={{ alpha: true, antialias: true }}
                 dpr={[1, 2]}
                 className="!absolute inset-0"
@@ -299,7 +303,7 @@ export default function ViewerHub() {
                     exit={{ opacity: 0, x: -8 }}
                     transition={{ duration: 0.25 }}
                     onClick={() => goToFrame('prev')}
-                    className="absolute left-0 z-30 flex h-14 w-14 items-center justify-center text-foreground/35 hover:text-foreground/60 transition-colors active:scale-90"
+                    className={`absolute left-0 z-30 flex h-14 w-14 items-center justify-center transition-colors active:scale-90 ${light ? 'text-black/35 hover:text-black/60' : 'text-foreground/35 hover:text-foreground/60'}`}
                     style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.1rem)' }}
                   >
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -319,7 +323,7 @@ export default function ViewerHub() {
                     exit={{ opacity: 0, x: 8 }}
                     transition={{ duration: 0.25 }}
                     onClick={() => goToFrame('next')}
-                    className="absolute right-0 z-30 flex h-14 w-14 items-center justify-center text-foreground/35 hover:text-foreground/60 transition-colors active:scale-90"
+                    className={`absolute right-0 z-30 flex h-14 w-14 items-center justify-center transition-colors active:scale-90 ${light ? 'text-black/35 hover:text-black/60' : 'text-foreground/35 hover:text-foreground/60'}`}
                     style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.1rem)' }}
                   >
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -340,7 +344,7 @@ export default function ViewerHub() {
             <AnimatePresence mode="wait">
               <motion.p
                 key={activeProductId}
-                className="text-foreground/60 text-sm tracking-wide font-light"
+                className={`text-sm tracking-wide font-light transition-colors duration-500 ${light ? 'text-black/60' : 'text-foreground/60'}`}
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
@@ -377,8 +381,8 @@ export default function ViewerHub() {
                         height: 5,
                         backgroundColor:
                           i === frameHistoryIndex
-                            ? 'rgba(201, 169, 110, 0.8)'
-                            : 'rgba(255, 255, 255, 0.2)',
+                            ? (light ? 'rgba(0, 0, 0, 0.6)' : 'var(--gold)')
+                            : (light ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.2)'),
                       }}
                       transition={{ duration: 0.3, ease: 'easeOut' }}
                     />
@@ -394,7 +398,7 @@ export default function ViewerHub() {
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
-                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] tracking-wide bg-gold/15 backdrop-blur-md text-gold/90 border border-gold/20 hover:border-gold/40 transition-all active:scale-95"
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs tracking-wide bg-gold/15 backdrop-blur-md text-gold/90 border border-gold/20 hover:border-gold/40 transition-all active:scale-95"
               >
                 View {getProduct(recommendedProductId).name}
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -412,10 +416,10 @@ export default function ViewerHub() {
                     <button
                       key={cw.id}
                       onClick={() => handleColourwaySwitch(cw.id)}
-                      className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] tracking-wide whitespace-nowrap backdrop-blur-md transition-all duration-300 ${
+                      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs tracking-wide whitespace-nowrap backdrop-blur-md transition-all duration-300 ${
                         isActive
-                          ? 'bg-white/10 text-foreground/60 border border-white/15'
-                          : 'bg-white/5 text-foreground/30 border border-white/5 hover:bg-white/8 hover:text-foreground/40'
+                          ? (light ? 'bg-black/8 text-black/60 border border-black/10' : 'bg-white/10 text-foreground/60 border border-white/15')
+                          : (light ? 'bg-black/4 text-black/30 border border-black/5 hover:bg-black/8 hover:text-black/40' : 'bg-white/5 text-foreground/30 border border-white/5 hover:bg-white/8 hover:text-foreground/40')
                       }`}
                     >
                       <div
@@ -431,7 +435,7 @@ export default function ViewerHub() {
                 })}
               </div>
             ) : (
-              <div className="rounded-full px-3.5 py-1 text-[11px] tracking-wide bg-white/5 backdrop-blur-md text-foreground/35 border border-white/5">
+              <div className={`rounded-full px-3.5 py-1.5 text-xs tracking-wide backdrop-blur-md transition-colors duration-500 ${light ? 'bg-black/5 text-black/35 border border-black/5' : 'bg-white/5 text-foreground/35 border border-white/5'}`}>
                 {colourwayName}
               </div>
             )}
@@ -566,7 +570,7 @@ export default function ViewerHub() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5, duration: 0.5 }}
             >
-              <p className="text-foreground/70 text-sm leading-relaxed text-center">
+              <p className={`text-sm leading-relaxed text-center transition-colors duration-500 ${light ? 'text-black/60' : 'text-foreground/70'}`}>
                 {truncateAtSentence(assistantMessage)}
               </p>
             </motion.div>
@@ -579,15 +583,15 @@ export default function ViewerHub() {
           <div className="flex items-center justify-between pt-1">
             <button
               onClick={() => setScreen('scanner')}
-              className="text-foreground/30 text-xs tracking-wide hover:text-foreground/50 transition-colors"
+              className={`text-base py-2.5 tracking-wide transition-colors duration-500 ${light ? 'text-black/30 hover:text-black/50' : 'text-foreground/30 hover:text-foreground/50'}`}
             >
               Scan another
             </button>
             <button
               onClick={() => setScreen('save-modal')}
-              className="text-gold/70 text-xs tracking-wide hover:text-gold transition-colors"
+              className={`text-base py-2.5 tracking-wide transition-colors duration-500 ${light ? 'text-black/50 hover:text-black/70' : 'text-foreground/40 hover:text-foreground/60'}`}
             >
-              Notify store assistant
+              Share with store associate
             </button>
           </div>
         </motion.div>

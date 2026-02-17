@@ -94,10 +94,7 @@ export default function FaceScanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Progress ring parameters
-  const radius = 90;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - progress);
+  // Progress ring: rx=90, ry=121.5 (90*1.35), center at (126,166), starts at top (126, 44.5)
 
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -118,7 +115,7 @@ export default function FaceScanner({
             rx="85"
             ry="120"
             fill="none"
-            stroke={faceDetected ? '#C9A96E' : 'rgba(245, 240, 235, 0.3)'}
+            stroke={faceDetected ? 'var(--gold)' : 'rgba(245, 240, 235, 0.3)'}
             strokeWidth="1.5"
             strokeDasharray={faceDetected ? 'none' : '8 4'}
             className="transition-all duration-500"
@@ -130,30 +127,19 @@ export default function FaceScanner({
           className="absolute -inset-4 w-[calc(100%+32px)] h-[calc(100%+32px)]"
           viewBox="0 0 252 332"
         >
-          {/* Background ring */}
-          <ellipse
-            cx="126"
-            cy="166"
-            rx={radius}
-            ry={radius * 1.35}
-            fill="none"
-            stroke="rgba(245, 240, 235, 0.08)"
-            strokeWidth="2"
+          {/* Background track */}
+          <path
+            d="M 126 44.5 A 90 121.5 0 1 1 125.999 44.5"
+            fill="none" stroke="rgba(245, 240, 235, 0.08)" strokeWidth="2"
           />
-          {/* Progress ring */}
-          <ellipse
-            cx="126"
-            cy="166"
-            rx={radius}
-            ry={radius * 1.35}
-            fill="none"
-            stroke="#C9A96E"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeDasharray={circumference * 1.35}
-            strokeDashoffset={strokeDashoffset * 1.35}
+          {/* Animated progress — starts at top, closes clockwise */}
+          <path
+            d="M 126 44.5 A 90 121.5 0 1 1 125.999 44.5"
+            fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round"
+            pathLength="100"
+            strokeDasharray="100"
+            strokeDashoffset={100 * (1 - progress)}
             className="transition-all duration-100"
-            transform="rotate(-90 126 166)"
           />
         </svg>
 

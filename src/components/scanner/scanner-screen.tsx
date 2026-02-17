@@ -7,6 +7,7 @@ import { useGLTF } from '@react-three/drei';
 import { useAppStore } from '@/store/app-store';
 import { productData } from '@/data/product-data';
 import { triggerHaptic } from '@/lib/haptics';
+import { useCameraBrightness } from '@/lib/use-camera-brightness';
 
 // Preload the GLB model while user is scanning
 useGLTF.preload(productData.modelPath);
@@ -20,6 +21,12 @@ export default function ScannerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const hasScanned = useRef(false);
+
+  const getVideo = useCallback(
+    () => document.querySelector<HTMLVideoElement>('#qr-scanner-region video'),
+    [],
+  );
+  const isLight = useCameraBrightness(getVideo, scanning);
 
   const handleScanSuccess = useCallback(
     (decodedText: string) => {
@@ -114,15 +121,15 @@ export default function ScannerScreen() {
         >
           <div className="relative w-[200px] h-[200px]">
             <svg
-              className="absolute inset-0 w-full h-full"
+              className="absolute inset-0 w-full h-full transition-colors duration-500"
               viewBox="0 0 200 200"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <path d="M2 40 L2 2 L40 2" stroke="#C9A96E" strokeWidth="3" strokeLinecap="round" />
-              <path d="M160 2 L198 2 L198 40" stroke="#C9A96E" strokeWidth="3" strokeLinecap="round" />
-              <path d="M198 160 L198 198 L160 198" stroke="#C9A96E" strokeWidth="3" strokeLinecap="round" />
-              <path d="M40 198 L2 198 L2 160" stroke="#C9A96E" strokeWidth="3" strokeLinecap="round" />
+              <path d="M2 40 L2 2 L40 2" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" />
+              <path d="M160 2 L198 2 L198 40" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" />
+              <path d="M198 160 L198 198 L160 198" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" />
+              <path d="M40 198 L2 198 L2 160" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" />
             </svg>
 
             {/* Scan line */}
@@ -155,14 +162,14 @@ export default function ScannerScreen() {
 
       {/* Bottom UI */}
       <div
-        className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-5 px-6"
+        className={`absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-5 px-6 transition-colors duration-500`}
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.5rem)' }}
       >
         <div className="text-center space-y-2">
-          <p className="text-foreground/60 text-xs tracking-[0.2em] uppercase">
+          <p className={`text-xs tracking-[0.2em] uppercase transition-colors duration-500 ${isLight ? 'text-black/50' : 'text-foreground/60'}`}>
             Scan to discover
           </p>
-          <p className="text-foreground/80 text-base leading-relaxed max-w-[280px]">
+          <p className={`text-base leading-relaxed max-w-[280px] transition-colors duration-500 ${isLight ? 'text-black/70' : 'text-foreground/80'}`}>
             Point your camera at a QR code on the frame
           </p>
         </div>
@@ -173,14 +180,14 @@ export default function ScannerScreen() {
         >
           <div className="absolute inset-0 rounded-full bg-gradient-to-r from-gold/20 via-gold/30 to-gold/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           <div className="absolute inset-0 rounded-full border border-gold/40 group-hover:border-gold/60 transition-colors duration-300" />
-          <span className="relative text-gold text-sm font-medium tracking-wide">
+          <span className="relative text-sm font-medium tracking-wide text-gold">
             {demoMode ? 'Skip scan' : "I can\u0027t scan"}
           </span>
         </button>
 
         <button
           onClick={() => setScreen('landing')}
-          className="text-foreground/30 text-[10px] tracking-[0.15em] uppercase hover:text-foreground/50 transition-colors"
+          className={`text-xs tracking-[0.15em] uppercase transition-colors duration-500 py-2 ${isLight ? 'text-black/30 hover:text-black/50' : 'text-foreground/30 hover:text-foreground/50'}`}
         >
           Go back
         </button>

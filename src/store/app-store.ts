@@ -113,6 +113,15 @@ interface AppState {
   // AI-recommended colourway (colourway id or null)
   aiRecommendedColourway: string | null;
   setAiRecommendedColourway: (id: string | null) => void;
+
+  // Recommended frame size from face scan (e.g. 'standard' or 'large')
+  recommendedSize: string | null;
+  setRecommendedSize: (size: string | null) => void;
+
+  // Camera brightness — true when the camera background is light enough
+  // that white text should switch to dark for readability
+  isCameraLight: boolean;
+  setIsCameraLight: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -242,6 +251,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Recommended frame
   recommendedProductId: null,
   setRecommendedProductId: (recommendedProductId) => set({ recommendedProductId }),
+
+  // Recommended size from face scan (defaults to 'standard' as a safe guess)
+  recommendedSize: 'standard',
+  setRecommendedSize: (recommendedSize) => set({ recommendedSize }),
+
+  // Camera brightness
+  isCameraLight: false,
+  setIsCameraLight: (isCameraLight) => set({ isCameraLight }),
 
   // AI-recommended colourway — scoped to the current frame, accumulates all recommendations
   aiRecommendedColourway: null,

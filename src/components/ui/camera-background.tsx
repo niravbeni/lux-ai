@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useAppStore } from '@/store/app-store';
+import { useCameraBrightness } from '@/lib/use-camera-brightness';
 
 /**
  * Full-screen blurred camera feed used as an ambient background.
@@ -10,12 +12,16 @@ import { useEffect, useRef, useState } from 'react';
  *
  * The component stays mounted for the entire viewer-hub lifetime so
  * the camera stream is never destroyed.
+ *
+ * Also samples brightness and stores `isCameraLight` in Zustand so
+ * that overlaid text can switch to dark colours on bright scenes.
  */
 export default function CameraBackground() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [ready, setReady] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(false);
+  const setIsCameraLight = useAppStore((s) => s.setIsCameraLight);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +62,13 @@ export default function CameraBackground() {
       streamRef.current = null;
     };
   }, []);
+
+  const getVideo = useCallback(() => videoRef.current, []);
+  const isLight = useCameraBrightness(getVideo, ready);
+
+  useEffect(() => {
+    setIsCameraLight(isLight);
+  }, [isLight, setIsCameraLight]);
 
   return (
     <video

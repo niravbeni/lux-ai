@@ -452,7 +452,7 @@ export default function ColourMode() {
                 <ellipse
                   cx="110" cy="150" rx="85" ry="120"
                   fill="none"
-                  stroke={faceDetected ? '#C9A96E' : 'rgba(245, 240, 235, 0.3)'}
+                  stroke={faceDetected ? 'var(--gold)' : 'rgba(245, 240, 235, 0.3)'}
                   strokeWidth="1.5"
                   strokeDasharray={faceDetected ? 'none' : '8 4'}
                   className="transition-all duration-500"
@@ -465,22 +465,19 @@ export default function ColourMode() {
                   className="absolute -inset-4 w-[calc(100%+32px)] h-[calc(100%+32px)]"
                   viewBox="0 0 252 332"
                 >
-                  {/* Background track — portrait oval, no rotation */}
-                  <ellipse
-                    cx="126" cy="166" rx="100" ry="135"
+                  {/* Background track */}
+                  <path
+                    d="M 126 31 A 100 135 0 1 1 125.999 31"
                     fill="none" stroke="rgba(245, 240, 235, 0.08)" strokeWidth="2"
                   />
-                  {/* Animated progress — rx/ry swapped so that after -90° rotation
-                      the visual result is portrait (100 wide × 135 tall) with the
-                      stroke starting at the top (12 o'clock) */}
-                  <ellipse
-                    cx="126" cy="166" rx="135" ry="100"
-                    fill="none" stroke="#C9A96E" strokeWidth="2.5" strokeLinecap="round"
+                  {/* Animated progress — starts at top, closes clockwise */}
+                  <path
+                    d="M 126 31 A 100 135 0 1 1 125.999 31"
+                    fill="none" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round"
                     pathLength="100"
                     strokeDasharray="100"
                     strokeDashoffset={100 * (1 - progress)}
                     style={{ transition: 'stroke-dashoffset 80ms linear' }}
-                    transform="rotate(-90 126 166)"
                   />
                 </svg>
               )}
@@ -497,7 +494,7 @@ export default function ColourMode() {
 
               {/* Status text */}
               <div className="absolute -bottom-14 left-0 right-0 text-center">
-                <p className={`text-xs tracking-wide ${faceDetected ? 'text-gold/70' : 'text-foreground/50'}`}>
+                <p className={`text-sm tracking-wide ${faceDetected ? 'text-gold/70' : 'text-foreground/50'}`}>
                   {statusText}
                 </p>
               </div>
@@ -528,7 +525,7 @@ export default function ColourMode() {
                     className="w-5 h-5 rounded-full border border-white/20 shadow-sm"
                     style={{ backgroundColor: skinHex }}
                   />
-                  <span className="text-foreground/40 text-[11px] tracking-wider uppercase">
+                  <span className="text-foreground/40 text-xs tracking-wider uppercase">
                     {skinLabel}
                   </span>
                 </div>
@@ -549,7 +546,7 @@ export default function ColourMode() {
                     style={{ backgroundColor: colourResult.topMatch.color }}
                   />
                   <span className="text-foreground/80 text-xs">{colourResult.topMatch.name}</span>
-                  <span className="text-gold/60 text-[10px]">Top match</span>
+                  <span className="text-gold/60 text-xs">Top match</span>
                 </button>
 
                 <button
@@ -570,7 +567,7 @@ export default function ColourMode() {
         <div className="flex justify-center mt-4">
           <button
             onClick={() => setScreen('viewer-hub')}
-            className={`text-sm transition-colors ${
+            className={`text-base py-3 transition-colors ${
               phase === 'result'
                 ? 'text-gold/70 hover:text-gold font-medium tracking-wide'
                 : 'text-foreground/40 hover:text-foreground/60'

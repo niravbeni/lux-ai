@@ -436,7 +436,7 @@ export default function VoiceInput() {
               height="24"
               viewBox="0 0 24 24"
               fill="none"
-              stroke={isListening ? '#C9A96E' : isSpeaking ? '#C9A96E' : '#F5F0EB'}
+              stroke={isListening ? 'var(--gold)' : isSpeaking ? 'var(--gold)' : '#F5F0EB'}
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -450,7 +450,7 @@ export default function VoiceInput() {
         )}
 
         {/* Hold-to-talk label — "Listening" is already shown above the orb */}
-        <p className="text-foreground/25 text-[10px] tracking-widest uppercase">
+        <p className="text-foreground/25 text-xs tracking-widest uppercase">
           {isSpeaking ? 'Speaking…' : 'Hold to talk'}
         </p>
       </div>
@@ -458,18 +458,20 @@ export default function VoiceInput() {
   }
 
   // ── Product view: text input + small mic button ────────────────────
+  const isCameraLight = useAppStore((s) => s.isCameraLight);
+
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="flex items-center gap-3 w-full max-w-sm">
         {/* Text input box */}
         <form onSubmit={handleTextSubmit} className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 glass-card rounded-full px-4 py-2.5">
+          <div className="flex items-center gap-2 rounded-full px-4 py-2.5 backdrop-blur-md border border-gold/50 bg-gold/8 transition-colors duration-300">
             <input
               type="text"
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Ask about colour, fit, or details..."
-              className="flex-1 bg-transparent text-foreground/80 text-sm placeholder:text-foreground/30 outline-none min-w-0"
+              className={`flex-1 bg-transparent text-sm outline-none min-w-0 placeholder:text-gold/70 transition-colors duration-300 ${isCameraLight ? 'text-black/80' : 'text-foreground/80'}`}
             />
 
             {/* Send button — only visible when text entered */}
@@ -504,7 +506,7 @@ export default function VoiceInput() {
             onPointerUp={handleMicUp}
             onPointerLeave={handleMicUp}
             onContextMenu={(e) => e.preventDefault()}
-            className="relative flex-shrink-0 flex h-11 w-11 items-center justify-center rounded-full glass-card border border-glass-border transition-all duration-200 select-none"
+            className="relative flex-shrink-0 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-md border border-gold/50 bg-gold/15 transition-all duration-200 select-none"
             whileTap={{ scale: 0.9 }}
           >
             <svg
@@ -512,7 +514,7 @@ export default function VoiceInput() {
               height="18"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#F5F0EB"
+              stroke="var(--gold)"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"

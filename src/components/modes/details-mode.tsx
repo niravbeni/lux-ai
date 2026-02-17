@@ -10,6 +10,7 @@ import { speak } from '@/lib/tts';
 export default function DetailsMode() {
   const setScreen = useAppStore((s) => s.setScreen);
   const setAssistantMessage = useAppStore((s) => s.setAssistantMessage);
+  const recommendedSize = useAppStore((s) => s.recommendedSize);
 
   useEffect(() => {
     const intro = pickRandom(dialogueScripts.details.intro);
@@ -54,30 +55,7 @@ export default function DetailsMode() {
             transition={{ delay: 0.3, duration: 0.5 }}
           >
             <p className="text-foreground/80 text-base leading-relaxed">{productData.tagline}</p>
-            <p className="text-foreground/50 text-xs leading-relaxed">{productData.whyItMatters}</p>
-          </motion.div>
-
-          {/* Features */}
-          <motion.div
-            className="space-y-3 w-full"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
-          >
-            <h3 className="text-foreground/40 text-[10px] tracking-[0.2em] uppercase">Key Features</h3>
-            <ul className="space-y-2">
-              {productData.features.map((feature, i) => (
-                <motion.li
-                  key={i}
-                  className="text-foreground/70 text-sm leading-relaxed"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5 + i * 0.06, duration: 0.3 }}
-                >
-                  {feature}
-                </motion.li>
-              ))}
-            </ul>
+            <p className="text-foreground/50 text-sm leading-relaxed">{productData.whyItMatters}</p>
           </motion.div>
 
           {/* Good for */}
@@ -85,9 +63,9 @@ export default function DetailsMode() {
             className="space-y-3 w-full"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.5 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
           >
-            <h3 className="text-foreground/40 text-[10px] tracking-[0.2em] uppercase">Good For</h3>
+            <h3 className="text-foreground/40 text-xs tracking-[0.2em] uppercase">Good For</h3>
             <div className="flex flex-wrap justify-center gap-2">
               {productData.goodFor.map((item, i) => (
                 <motion.span
@@ -95,12 +73,38 @@ export default function DetailsMode() {
                   className="glass-card rounded-full px-3 py-1.5 text-foreground/60 text-xs"
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.7 + i * 0.05, duration: 0.3 }}
+                  transition={{ delay: 0.5 + i * 0.05, duration: 0.3 }}
                 >
                   {item}
                 </motion.span>
               ))}
             </div>
+          </motion.div>
+
+          {/* Features */}
+          <motion.div
+            className="space-y-3 w-full"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
+          >
+            <h3 className="text-foreground/40 text-xs tracking-[0.2em] uppercase">Key Features</h3>
+            <ul className="space-y-2.5 inline-block text-left">
+              {productData.features.map((feature, i) => (
+                <motion.li
+                  key={i}
+                  className="text-foreground/70 text-sm leading-relaxed flex items-start gap-2.5"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.7 + i * 0.06, duration: 0.3 }}
+                >
+                  <span className="text-foreground/40 mt-1.5 flex-shrink-0">
+                    <svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3" /></svg>
+                  </span>
+                  {feature}
+                </motion.li>
+              ))}
+            </ul>
           </motion.div>
 
           {/* Sizes */}
@@ -110,20 +114,35 @@ export default function DetailsMode() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.5 }}
           >
-            <h3 className="text-foreground/40 text-[10px] tracking-[0.2em] uppercase">Available Sizes</h3>
+            <h3 className="text-foreground/40 text-xs tracking-[0.2em] uppercase">Available Sizes</h3>
             <div className="grid grid-cols-2 gap-3">
-              <div className="glass-card rounded-xl p-3 text-left">
-                <p className="text-foreground/50 text-[10px] tracking-wider uppercase mb-1">Standard</p>
-                <p className="text-foreground/70 text-xs">Lens: {productData.sizes.standard.lensWidth}</p>
-                <p className="text-foreground/50 text-[11px]">Bridge: {productData.sizes.standard.bridge}</p>
-                <p className="text-foreground/50 text-[11px]">Temple: {productData.sizes.standard.templeLength}</p>
-              </div>
-              <div className="glass-card rounded-xl p-3 text-left">
-                <p className="text-foreground/50 text-[10px] tracking-wider uppercase mb-1">Large</p>
-                <p className="text-foreground/70 text-xs">Lens: {productData.sizes.large.lensWidth}</p>
-                <p className="text-foreground/50 text-[11px]">Bridge: {productData.sizes.large.bridge}</p>
-                <p className="text-foreground/50 text-[11px]">Temple: {productData.sizes.large.templeLength}</p>
-              </div>
+              {Object.entries(productData.sizes).map(([key, size]) => {
+                const isRecommended = recommendedSize === key;
+                return (
+                  <div
+                    key={key}
+                    className={`rounded-xl p-3 text-left transition-all duration-300 ${
+                      isRecommended
+                        ? 'border border-white/20 bg-white/8'
+                        : 'glass-card'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <p className={`text-xs tracking-wider uppercase ${isRecommended ? 'text-foreground/70' : 'text-foreground/50'}`}>
+                        {key}
+                      </p>
+                      {isRecommended && (
+                        <span className="text-[10px] tracking-wider uppercase text-foreground/60 bg-white/10 rounded-full px-1.5 py-0.5">
+                          Best fit
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-xs ${isRecommended ? 'text-foreground/80' : 'text-foreground/70'}`}>Lens: {size.lensWidth}</p>
+                    <p className={`text-xs ${isRecommended ? 'text-foreground/60' : 'text-foreground/50'}`}>Bridge: {size.bridge}</p>
+                    <p className={`text-xs ${isRecommended ? 'text-foreground/60' : 'text-foreground/50'}`}>Temple: {size.templeLength}</p>
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
 
@@ -134,8 +153,8 @@ export default function DetailsMode() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.9, duration: 0.5 }}
           >
-            <h3 className="text-foreground/40 text-[10px] tracking-[0.2em] uppercase">Care</h3>
-            <p className="text-foreground/50 text-xs leading-relaxed">{productData.careNote}</p>
+            <h3 className="text-foreground/40 text-xs tracking-[0.2em] uppercase">Care</h3>
+            <p className="text-foreground/50 text-sm leading-relaxed">{productData.careNote}</p>
           </motion.div>
         </div>
       </div>
@@ -149,7 +168,7 @@ export default function DetailsMode() {
       >
         <button
           onClick={handleClose}
-          className="text-foreground/40 text-xs tracking-wide hover:text-foreground/60 transition-colors"
+          className="text-foreground/40 text-sm py-2 tracking-wide hover:text-foreground/60 transition-colors"
         >
           Back to viewer
         </button>

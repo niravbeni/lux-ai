@@ -47,6 +47,7 @@ const pills = [
 
 export default function SuggestionPills() {
   const setScreen = useAppStore((s) => s.setScreen);
+  const isCameraLight = useAppStore((s) => s.isCameraLight);
 
   const handlePillClick = (screen: typeof pills[number]['screen']) => {
     triggerHaptic('light');
@@ -55,7 +56,7 @@ export default function SuggestionPills() {
 
   return (
     <motion.div
-      className="flex flex-nowrap justify-center gap-2"
+      className="flex flex-wrap justify-center gap-2 px-4"
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.6, duration: 0.5 }}
@@ -64,13 +65,17 @@ export default function SuggestionPills() {
         <motion.button
           key={pill.id}
           onClick={() => handlePillClick(pill.screen)}
-          className="glass-card flex items-center gap-1 rounded-full px-2.5 py-1.5 text-foreground/70 text-[11px] whitespace-nowrap transition-all duration-200 hover:text-foreground hover:border-gold/30 active:scale-95"
+          className="group relative overflow-hidden flex items-center gap-2 rounded-full px-4 py-2.5 text-xs sm:px-5 whitespace-nowrap transition-all duration-300 active:scale-95 text-gold hover:text-gold-light"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 + i * 0.1, duration: 0.4 }}
         >
-          <span className="text-gold/70">{pill.icon}</span>
-          {pill.label}
+          {/* Hover fill */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-gold/20 via-gold/30 to-gold/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          {/* Border */}
+          <div className="absolute inset-0 rounded-full border border-gold/50 group-hover:border-gold/70 transition-colors duration-300" />
+          <span className="relative text-gold group-hover:text-gold-light transition-colors duration-300">{pill.icon}</span>
+          <span className="relative">{pill.label}</span>
         </motion.button>
       ))}
     </motion.div>
