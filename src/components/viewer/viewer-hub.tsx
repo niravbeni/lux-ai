@@ -480,11 +480,11 @@ export default function ViewerHub() {
 
           {/* User transcript + AI streaming text */}
           <div
-            className="absolute inset-x-0 bottom-0 z-20 flex flex-col items-center pointer-events-none"
-            style={{ top: '15%' }}
+            className="absolute inset-x-0 z-20 flex flex-col items-center pointer-events-none"
+            style={{ top: '15%', bottom: 'max(8.5rem, calc(env(safe-area-inset-bottom, 0px) + 8rem))' }}
           >
             <div className="flex-1" />
-            <div className="px-8 pb-4 w-full max-w-sm space-y-3">
+            <div className="px-8 pb-2 w-full max-w-sm space-y-3">
               {/* User's spoken words — shown while listening or just after */}
               <AnimatePresence>
                 {isConversing && (transcript || isListening) && !streamingText && (
