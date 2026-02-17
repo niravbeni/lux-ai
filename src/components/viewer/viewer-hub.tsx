@@ -248,7 +248,7 @@ export default function ViewerHub() {
               transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
             >
               <Canvas
-                camera={{ position: [0, 0.15, 3.8], fov: 30 }}
+                camera={{ position: [0, 0.15, 3.0], fov: 30 }}
                 gl={{ alpha: true, antialias: true }}
                 dpr={[1, 2]}
                 className="!absolute inset-0"
@@ -338,13 +338,13 @@ export default function ViewerHub() {
           {/* Product name + carousel dots + colourway pills */}
           <div
             className="absolute left-0 right-0 flex flex-col items-center gap-2 z-20"
-            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
           >
             {/* Product name with animated transition */}
             <AnimatePresence mode="wait">
               <motion.p
                 key={activeProductId}
-                className={`text-sm tracking-wide font-light transition-colors duration-500 ${light ? 'text-black/60' : 'text-foreground/60'}`}
+                className={`text-base tracking-wide font-light transition-colors duration-500 ${light ? 'text-black/60' : 'text-foreground/60'}`}
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}

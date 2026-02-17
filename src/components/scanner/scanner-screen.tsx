@@ -181,7 +181,7 @@ export default function ScannerScreen() {
           <div className="absolute inset-0 rounded-full bg-gradient-to-r from-gold/20 via-gold/30 to-gold/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           <div className="absolute inset-0 rounded-full border border-gold/40 group-hover:border-gold/60 transition-colors duration-300" />
           <span className="relative text-sm font-medium tracking-wide text-gold">
-            {demoMode ? 'Skip scan' : "I can\u0027t scan"}
+            Skip scan
           </span>
         </button>
 
