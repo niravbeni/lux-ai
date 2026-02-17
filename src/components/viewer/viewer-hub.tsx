@@ -558,7 +558,8 @@ export default function ViewerHub() {
       {!isConversing && (
         /* Product mode: full bottom panel */
         <motion.div
-          className="relative z-20 flex flex-col gap-6 pb-3 pt-6 px-6 safe-bottom"
+          className="relative z-20 flex flex-col gap-6 pt-6 px-6"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
