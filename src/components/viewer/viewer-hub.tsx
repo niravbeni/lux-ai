@@ -245,7 +245,7 @@ export default function ViewerHub() {
           </div>
 
           {/* 3D Frame Canvas — fills the area above the bottom sections */}
-          <div className="absolute inset-0" style={{ bottom: 220 }} onPointerUp={() => {}}>
+          <div className="absolute inset-0" style={{ bottom: 260 }} onPointerUp={() => {}}>
             <motion.div className="absolute inset-0" onPanEnd={handlePanEnd}>
               <AnimatePresence mode="wait" custom={slideDirection}>
                 <motion.div

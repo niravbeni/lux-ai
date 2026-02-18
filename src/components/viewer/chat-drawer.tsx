@@ -9,20 +9,7 @@ import FrameThumbnail from './frame-thumbnail';
 
 const COLLAPSED_H = 200;
 const EXPANDED_TOP = 160;
-
-function truncateMessage(text: string, maxLen = 140): string {
-  if (!text || text.length <= maxLen) return text;
-  const truncated = text.slice(0, maxLen);
-  const lastEnd = Math.max(
-    truncated.lastIndexOf('. '),
-    truncated.lastIndexOf('! '),
-    truncated.lastIndexOf('? '),
-    truncated.lastIndexOf('.'),
-  );
-  if (lastEnd > maxLen * 0.35) return truncated.slice(0, lastEnd + 1).trim();
-  const lastSpace = truncated.lastIndexOf(' ');
-  return (lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated).trim() + '…';
-}
+const HANDLE_H = 36;
 
 function FrameCard({ message }: { message: ChatMessage }) {
   const setScreen = useAppStore((s) => s.setScreen);
@@ -113,12 +100,28 @@ export default function ChatDrawer() {
   const [expanded, setExpanded] = useState(false);
   const [bottomBarHeight, setBottomBarHeight] = useState(100);
 
-  const rawY = useMotionValue(0);
-  const y = useSpring(rawY, { stiffness: 300, damping: 30 });
-
+  // The drawer has a FIXED full-expanded height and uses translateY to
+  // slide up/down. This avoids animating `height` which triggers expensive
+  // layout recalculations; translateY is GPU-composited.
   const getMaxDrag = useCallback(() => {
     if (typeof window === 'undefined') return 500;
     return window.innerHeight - EXPANDED_TOP - COLLAPSED_H;
+  }, []);
+
+  const rawY = useMotionValue(0);
+  const springY = useSpring(rawY, { stiffness: 300, damping: 30 });
+
+  // translateY: when rawY=0 (collapsed), shift = maxDrag (pushed down).
+  // when rawY=-maxDrag (expanded), shift = 0 (fully visible).
+  const translateY = useTransform(springY, (latest) => {
+    const maxDrag = getMaxDrag();
+    return maxDrag + Math.max(-maxDrag, Math.min(0, latest));
+  });
+
+  // Full expanded height of the drawer (constant)
+  const [drawerHeight, setDrawerHeight] = useState(COLLAPSED_H + 500);
+  useEffect(() => {
+    setDrawerHeight(window.innerHeight - EXPANDED_TOP);
   }, []);
 
   useEffect(() => {
@@ -131,7 +134,7 @@ export default function ChatDrawer() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatHistory.length]);
+  }, [chatHistory.length, expanded]);
 
   const handlePan = useCallback(
     (_: unknown, info: PanInfo) => {
@@ -172,15 +175,18 @@ export default function ChatDrawer() {
 
   const hasHistory = chatHistory.some((m) => m.role === 'assistant');
 
+  // Derive the last assistant message from chat history so collapsed and
+  // expanded views always show identical text — no truncation, no mismatch.
+  const lastAssistantMsg = [...chatHistory].reverse().find((m) => m.role === 'assistant');
+  const displayMessage = lastAssistantMsg?.content ?? assistantMessage ?? '';
+
   return (
     <motion.div
       className="absolute bottom-0 left-0 right-0 z-40 rounded-t-[40px]"
       style={{
-        height: useTransform(y, (latest) => {
-          const maxDrag = getMaxDrag();
-          return COLLAPSED_H + Math.abs(Math.min(0, Math.max(-maxDrag, latest)));
-        }),
-        willChange: 'height',
+        height: drawerHeight,
+        y: translateY,
+        willChange: 'transform',
       }}
     >
       <div className="h-full relative bg-[#0e0e10] rounded-t-[40px] shadow-[0px_-4px_20px_0px_rgba(255,255,255,0.1)] overflow-hidden">
@@ -194,12 +200,12 @@ export default function ChatDrawer() {
           <div className="w-[70px] h-[4px] rounded-full bg-foreground/20" />
         </motion.div>
 
-        {/* Scrollable chat history — absolute between handle and bottom bar */}
+        {/* Scrollable chat content — same content collapsed and expanded */}
         <div
           ref={scrollRef}
           className="absolute left-0 right-0 overflow-y-auto px-6"
           style={{
-            top: 36,
+            top: HANDLE_H,
             bottom: bottomBarHeight,
             scrollbarWidth: 'none',
             WebkitOverflowScrolling: 'touch',
@@ -207,13 +213,7 @@ export default function ChatDrawer() {
             touchAction: 'pan-y',
           }}
         >
-          {!expanded && assistantMessage && (
-            <p className="text-foreground/70 text-sm leading-relaxed text-center">
-              {truncateMessage(assistantMessage)}
-            </p>
-          )}
-
-          {expanded && hasHistory && (
+          {expanded && hasHistory ? (
             <div className="space-y-6 pt-2 pb-4">
               {chatHistory.map((msg, i) => (
                 <div key={i}>
@@ -232,12 +232,16 @@ export default function ChatDrawer() {
                 </div>
               ))}
             </div>
-          )}
-
-          {expanded && !hasHistory && (
+          ) : expanded && !hasHistory ? (
             <p className="text-foreground/30 text-sm text-center pt-8">
               Start a conversation to see your chat history here.
             </p>
+          ) : (
+            displayMessage && (
+              <p className="text-foreground/70 text-sm leading-relaxed text-center">
+                {displayMessage}
+              </p>
+            )
           )}
         </div>
 
