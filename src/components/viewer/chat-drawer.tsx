@@ -21,10 +21,23 @@ function useKeyboard() {
   useEffect(() => {
     baseHeight.current = window.innerHeight;
 
+    const scrollPin = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
     const onFocus = (e: FocusEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') {
         focused.current = true;
+        // Prevent iOS from scrolling the page to reveal the input.
+        // Fire multiple times as the keyboard animates in.
+        scrollPin();
+        setTimeout(scrollPin, 50);
+        setTimeout(scrollPin, 150);
+        setTimeout(scrollPin, 300);
+        setTimeout(scrollPin, 500);
       }
     };
 
@@ -32,7 +45,9 @@ function useKeyboard() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') {
         focused.current = false;
+        scrollPin();
         setTimeout(() => {
+          scrollPin();
           if (!focused.current) {
             setState({ open: false, height: 0 });
           }
@@ -58,14 +73,20 @@ function useKeyboard() {
       }
     };
 
+    const onVVScroll = () => {
+      if (focused.current) scrollPin();
+    };
+
     document.addEventListener('focusin', onFocus);
     document.addEventListener('focusout', onBlur);
     window.visualViewport?.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('scroll', onVVScroll);
 
     return () => {
       document.removeEventListener('focusin', onFocus);
       document.removeEventListener('focusout', onBlur);
       window.visualViewport?.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('scroll', onVVScroll);
     };
   }, []);
 
