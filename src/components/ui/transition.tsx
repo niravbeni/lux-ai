@@ -46,7 +46,7 @@ export default function TransitionScreen() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.5 }}
       >
-        <p className="text-gold text-sm tracking-[0.2em] uppercase mb-2">
+        <p className="text-lux-blue text-sm tracking-[0.2em] uppercase mb-2">
           Recognised
         </p>
         <p className="text-foreground/70 text-lg font-light">
@@ -55,7 +55,7 @@ export default function TransitionScreen() {
       </motion.div>
 
       {/* Subtle radial glow */}
-      <div className="absolute inset-0 bg-radial-[circle_at_center] from-gold/8 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-radial-[circle_at_center] from-lux-blue/12 via-transparent to-transparent" />
     </motion.div>
   );
 }

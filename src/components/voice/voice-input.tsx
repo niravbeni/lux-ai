@@ -423,7 +423,7 @@ export default function VoiceInput() {
             onContextMenu={(e) => e.preventDefault()}
             className={`relative flex-shrink-0 flex h-16 w-16 items-center justify-center rounded-full transition-all duration-200 select-none ${
               isListening
-                ? 'bg-white/15 border-2 border-white/40'
+                ? 'bg-lux-blue/20 border-2 border-lux-blue/60'
                 : 'glass-card border border-glass-border'
             }`}
             whileTap={{ scale: 0.85 }}
@@ -431,7 +431,7 @@ export default function VoiceInput() {
             {/* Pulse ring — listening */}
             {isListening && (
               <motion.div
-                className="absolute inset-0 rounded-full border-2 border-white/25"
+                className="absolute inset-0 rounded-full border-2 border-lux-blue/40"
                 initial={{ scale: 1, opacity: 1 }}
                 animate={{ scale: 1.8, opacity: 0 }}
                 transition={{ duration: 1.2, repeat: Infinity }}

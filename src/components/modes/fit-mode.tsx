@@ -498,7 +498,7 @@ export default function FitMode() {
                 <ellipse
                   cx="110" cy="150" rx="85" ry="120"
                   fill="none"
-                  stroke={faceDetected ? 'rgba(255, 255, 255, 0.35)' : 'rgba(245, 240, 235, 0.3)'}
+                  stroke={faceDetected ? 'var(--lux-blue)' : 'rgba(245, 240, 235, 0.3)'}
                   strokeWidth="1.5"
                   strokeDasharray={faceDetected ? 'none' : '8 4'}
                   className="transition-all duration-500"
@@ -514,16 +514,13 @@ export default function FitMode() {
                     fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth="2"
                   />
                   {/* Animated progress — starts at top, closes clockwise */}
-                  {progress > 0 && (
-                    <path
-                      d="M 126 31 A 100 135 0 1 1 125.999 31"
-                      fill="none" stroke="rgba(255, 255, 255, 0.9)" strokeWidth="2.5" strokeLinecap="round"
-                      pathLength="100"
-                      strokeDasharray="100"
-                      strokeDashoffset={100 * (1 - progress)}
-                      style={{ transition: 'stroke-dashoffset 80ms linear' }}
-                    />
-                  )}
+                  <path
+                    d="M 126 31 A 100 135 0 1 1 125.999 31"
+                    fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round"
+                    pathLength={100}
+                    strokeDasharray="100"
+                    strokeDashoffset={100 - (progress * 100)}
+                  />
                 </svg>
               )}
 
@@ -560,7 +557,7 @@ export default function FitMode() {
               {/* Scan line */}
               {phase === 'scanning' && (
                 <motion.div
-                  className="absolute left-[10%] right-[10%] h-[2px] rounded-full bg-gradient-to-r from-transparent via-gold/60 to-transparent"
+                  className="absolute left-[10%] right-[10%] h-[2px] rounded-full bg-gradient-to-r from-transparent via-lux-blue/60 to-transparent"
                   initial={{ top: '10%' }}
                   animate={{ top: '90%' }}
                   transition={{ duration: 2.8, ease: 'linear' }}

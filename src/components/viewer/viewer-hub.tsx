@@ -234,7 +234,7 @@ export default function ViewerHub() {
                         width: i === frameHistoryIndex ? 18 : 5,
                         height: 5,
                         backgroundColor:
-                          i === frameHistoryIndex ? 'rgba(255, 255, 255, 0.85)' : 'rgba(255, 255, 255, 0.2)',
+                          i === frameHistoryIndex ? 'var(--lux-blue)' : 'rgba(255, 255, 255, 0.2)',
                       }}
                       transition={{ duration: 0.3, ease: 'easeOut' }}
                     />

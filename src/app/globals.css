@@ -7,6 +7,8 @@
   --gold-light: #FFFFFF;
   --glass: rgba(255, 255, 255, 0.06);
   --glass-border: rgba(255, 255, 255, 0.1);
+  --accent-blue: #2563EB;
+  --lux-blue: #2563EB;
 }
 
 @theme inline {
@@ -16,6 +18,8 @@
   --color-gold-light: var(--gold-light);
   --color-glass: var(--glass);
   --color-glass-border: var(--glass-border);
+  --color-accent-blue: var(--accent-blue);
+  --color-lux-blue: #2563EB;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

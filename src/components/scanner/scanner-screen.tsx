@@ -118,15 +118,15 @@ export default function ScannerScreen() {
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <path d="M2 40 L2 2 L40 2" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" />
-              <path d="M160 2 L198 2 L198 40" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" />
-              <path d="M198 160 L198 198 L160 198" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" />
-              <path d="M40 198 L2 198 L2 160" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" />
+              <path d="M2 40 L2 2 L40 2" stroke="var(--lux-blue)" strokeWidth="3" strokeLinecap="round" />
+              <path d="M160 2 L198 2 L198 40" stroke="var(--lux-blue)" strokeWidth="3" strokeLinecap="round" />
+              <path d="M198 160 L198 198 L160 198" stroke="var(--lux-blue)" strokeWidth="3" strokeLinecap="round" />
+              <path d="M40 198 L2 198 L2 160" stroke="var(--lux-blue)" strokeWidth="3" strokeLinecap="round" />
             </svg>
 
             {/* Scan line */}
             <motion.div
-              className="absolute left-4 right-4 h-[2px] bg-gradient-to-r from-transparent via-gold/60 to-transparent"
+              className="absolute left-4 right-4 h-[2px] bg-gradient-to-r from-transparent via-lux-blue/60 to-transparent"
               initial={{ top: '10%' }}
               animate={{ top: '90%' }}
               transition={{
