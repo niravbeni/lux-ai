@@ -16,44 +16,45 @@ function useKeyboard() {
   const baseHeight = useRef(
     typeof window !== 'undefined' ? window.innerHeight : 800,
   );
+  const focused = useRef(false);
 
   useEffect(() => {
     baseHeight.current = window.innerHeight;
 
-    const measure = () => {
-      const vv = window.visualViewport;
-      const h = vv ? vv.height : window.innerHeight;
-      const kb = Math.round(baseHeight.current - h);
-      return Math.max(0, kb);
-    };
-
     const onFocus = (e: FocusEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') {
-        // Immediately mark open, measure once keyboard settles
-        setState({ open: true, height: measure() || 260 });
-        setTimeout(() => setState({ open: true, height: measure() || 260 }), 100);
-        setTimeout(() => setState({ open: true, height: measure() || 260 }), 400);
+        focused.current = true;
       }
     };
 
     const onBlur = (e: FocusEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') {
+        focused.current = false;
         setTimeout(() => {
-          const active = document.activeElement?.tagName;
-          if (active !== 'INPUT' && active !== 'TEXTAREA') {
+          if (!focused.current) {
             setState({ open: false, height: 0 });
           }
-        }, 100);
+        }, 150);
       }
     };
 
     const onResize = () => {
-      const active = document.activeElement?.tagName;
-      if (active === 'INPUT' || active === 'TEXTAREA') {
-        const kb = measure();
-        if (kb > 100) setState({ open: true, height: kb });
+      if (!focused.current) {
+        // Keyboard closed or no input focused — capture base height
+        const vv = window.visualViewport;
+        if (vv && vv.height > baseHeight.current * 0.8) {
+          baseHeight.current = Math.round(vv.height);
+        }
+        setState({ open: false, height: 0 });
+        return;
+      }
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const kb = Math.round(baseHeight.current - vv.height);
+      if (kb > 100) {
+        setState({ open: true, height: kb });
       }
     };
 
