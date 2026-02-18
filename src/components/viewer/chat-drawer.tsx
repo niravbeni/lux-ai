@@ -11,27 +11,19 @@ const COLLAPSED_H = 200;
 const EXPANDED_TOP = 160;
 const HANDLE_H = 36;
 
-function useVisualViewport() {
-  const [vp, setVp] = useState(() => {
-    if (typeof window === 'undefined') return { height: 800, offsetTop: 0 };
-    return {
-      height: window.visualViewport?.height ?? window.innerHeight,
-      offsetTop: window.visualViewport?.offsetTop ?? 0,
-    };
-  });
+function useKeyboardHeight() {
+  const [kbHeight, setKbHeight] = useState(0);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const update = () =>
-      setVp({ height: vv.height, offsetTop: vv.offsetTop });
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
-    return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
+    const update = () => {
+      const kb = Math.max(0, window.innerHeight - vv.height);
+      setKbHeight(kb);
     };
+    vv.addEventListener('resize', update);
+    return () => vv.removeEventListener('resize', update);
   }, []);
-  return vp;
+  return kbHeight;
 }
 
 function FrameCard({ message }: { message: ChatMessage }) {
@@ -122,8 +114,7 @@ export default function ChatDrawer() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [bottomBarHeight, setBottomBarHeight] = useState(100);
-  const [inputFocused, setInputFocused] = useState(false);
-  const vp = useVisualViewport();
+  const kbHeight = useKeyboardHeight();
 
   const getMaxDrag = useCallback(() => {
     if (typeof window === 'undefined') return 500;
@@ -158,62 +149,7 @@ export default function ChatDrawer() {
     }
   }, [chatHistory.length, expanded]);
 
-  // Track input focus so we can adjust layout when keyboard is open
-  useEffect(() => {
-    const onFocus = (e: FocusEvent) => {
-      if ((e.target as HTMLElement)?.tagName === 'INPUT') {
-        setInputFocused(true);
-        // Prevent iOS from scrolling the page to reveal the input —
-        // we handle positioning via visualViewport instead.
-        requestAnimationFrame(() => {
-          window.scrollTo(0, 0);
-          document.documentElement.scrollTop = 0;
-          document.body.scrollTop = 0;
-        });
-      }
-    };
-    const onBlur = (e: FocusEvent) => {
-      if ((e.target as HTMLElement)?.tagName === 'INPUT') {
-        setInputFocused(false);
-        window.scrollTo(0, 0);
-      }
-    };
-    document.addEventListener('focusin', onFocus);
-    document.addEventListener('focusout', onBlur);
-    return () => {
-      document.removeEventListener('focusin', onFocus);
-      document.removeEventListener('focusout', onBlur);
-    };
-  }, []);
-
-  // Keep the page pinned to top while keyboard is open
-  useEffect(() => {
-    if (!inputFocused) return;
-    const pin = () => {
-      window.scrollTo(0, 0);
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
-    };
-    const vv = window.visualViewport;
-    if (vv) {
-      vv.addEventListener('scroll', pin);
-      vv.addEventListener('resize', pin);
-    }
-    window.addEventListener('scroll', pin);
-    return () => {
-      if (vv) {
-        vv.removeEventListener('scroll', pin);
-        vv.removeEventListener('resize', pin);
-      }
-      window.removeEventListener('scroll', pin);
-    };
-  }, [inputFocused]);
-
-  // When keyboard opens on iOS, push the bottom bar up so it stays visible.
-  // Also account for visualViewport.offsetTop which changes when iOS scrolls.
-  const keyboardOffset = inputFocused
-    ? Math.max(0, window.innerHeight - vp.height - vp.offsetTop)
-    : 0;
+  // kbHeight is derived purely from visualViewport resize — no scroll fighting
 
   const handlePan = useCallback(
     (_: unknown, info: PanInfo) => {
@@ -265,11 +201,10 @@ export default function ChatDrawer() {
       <motion.div
         className="absolute left-0 right-0 z-40 rounded-t-[40px]"
         style={{
-          bottom: keyboardOffset,
+          bottom: kbHeight,
           height: drawerHeight,
           y: translateY,
           willChange: 'transform',
-          transition: 'bottom 100ms ease-out',
         }}
       >
         <div className="h-full relative bg-[#0e0e10] rounded-t-[40px] overflow-hidden">
@@ -341,16 +276,15 @@ export default function ChatDrawer() {
         </div>
       </motion.div>
 
-      {/* Static bottom bar — fixed to screen, positioned via visualViewport */}
+      {/* Static bottom bar — fixed to screen, moves up with keyboard */}
       <div
         ref={bottomRef}
         className="fixed left-0 right-0 z-50 px-6 pt-3 bg-[#0e0e10]"
         style={{
-          bottom: keyboardOffset,
-          paddingBottom: keyboardOffset > 0
+          bottom: kbHeight,
+          paddingBottom: kbHeight > 0
             ? '0.5rem'
             : 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
-          transition: 'bottom 80ms linear',
         }}
       >
         <div className="flex justify-between mb-2">
