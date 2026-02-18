@@ -115,7 +115,7 @@ export default function FaceScanner({
             rx="85"
             ry="120"
             fill="none"
-            stroke={faceDetected ? 'var(--gold)' : 'rgba(245, 240, 235, 0.3)'}
+            stroke={faceDetected ? 'rgba(255, 255, 255, 0.35)' : 'rgba(245, 240, 235, 0.3)'}
             strokeWidth="1.5"
             strokeDasharray={faceDetected ? 'none' : '8 4'}
             className="transition-all duration-500"
@@ -130,17 +130,19 @@ export default function FaceScanner({
           {/* Background track */}
           <path
             d="M 126 44.5 A 90 121.5 0 1 1 125.999 44.5"
-            fill="none" stroke="rgba(245, 240, 235, 0.08)" strokeWidth="2"
+            fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth="2"
           />
           {/* Animated progress — starts at top, closes clockwise */}
-          <path
-            d="M 126 44.5 A 90 121.5 0 1 1 125.999 44.5"
-            fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round"
-            pathLength="100"
-            strokeDasharray="100"
-            strokeDashoffset={100 * (1 - progress)}
-            className="transition-all duration-100"
-          />
+          {progress > 0 && (
+            <path
+              d="M 126 44.5 A 90 121.5 0 1 1 125.999 44.5"
+              fill="none" stroke="rgba(255, 255, 255, 0.9)" strokeWidth="2" strokeLinecap="round"
+              pathLength="100"
+              strokeDasharray="100"
+              strokeDashoffset={100 * (1 - progress)}
+              className="transition-all duration-100"
+            />
+          )}
         </svg>
 
         {/* Status text */}

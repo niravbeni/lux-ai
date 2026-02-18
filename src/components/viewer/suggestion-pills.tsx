@@ -47,8 +47,6 @@ const pills = [
 
 export default function SuggestionPills() {
   const setScreen = useAppStore((s) => s.setScreen);
-  const isCameraLight = useAppStore((s) => s.isCameraLight);
-
   const handlePillClick = (screen: typeof pills[number]['screen']) => {
     triggerHaptic('light');
     setScreen(screen);
@@ -56,7 +54,7 @@ export default function SuggestionPills() {
 
   return (
     <motion.div
-      className="flex flex-wrap justify-center gap-2 px-4"
+      className="flex flex-nowrap justify-start gap-2"
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.6, duration: 0.5 }}
@@ -65,16 +63,15 @@ export default function SuggestionPills() {
         <motion.button
           key={pill.id}
           onClick={() => handlePillClick(pill.screen)}
-          className="group relative overflow-hidden flex items-center gap-2 rounded-full px-4 py-2.5 text-xs sm:px-5 whitespace-nowrap transition-all duration-300 active:scale-95 text-gold hover:text-gold-light"
+          className="group relative overflow-hidden flex items-center gap-1.5 rounded-full px-3 py-2 text-xs whitespace-nowrap transition-all duration-300 active:scale-95 text-foreground/70 hover:text-foreground/90"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 + i * 0.1, duration: 0.4 }}
         >
           {/* Hover fill */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-gold/20 via-gold/30 to-gold/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          {/* Border */}
-          <div className="absolute inset-0 rounded-full border border-gold/50 group-hover:border-gold/70 transition-colors duration-300" />
-          <span className="relative text-gold group-hover:text-gold-light transition-colors duration-300">{pill.icon}</span>
+          <div className="absolute inset-0 rounded-full bg-white/0 group-hover:bg-white/5 transition-colors duration-300" />
+          <div className="absolute inset-0 rounded-full border border-white/20 group-hover:border-white/35 transition-colors duration-300" />
+          <span className="relative text-foreground/50 group-hover:text-foreground/80 transition-colors duration-300">{pill.icon}</span>
           <span className="relative">{pill.label}</span>
         </motion.button>
       ))}

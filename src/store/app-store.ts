@@ -9,7 +9,9 @@ export type AppScreen =
   | 'colour-mode'
   | 'fit-mode'
   | 'details-mode'
-  | 'save-modal';
+  | 'save-modal'
+  | 'frames-overview'
+  | 'request-frame';
 
 export type OrbState = 'idle' | 'listening' | 'processing' | 'recognition' | 'speaking';
 
@@ -35,6 +37,8 @@ export type ColourResult = {
 export type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
+  frameId?: string;
+  colourwayId?: string;
 };
 
 interface AppState {
@@ -99,8 +103,17 @@ interface AppState {
 
   // Chat history for multi-turn GPT conversation
   chatHistory: ChatMessage[];
-  addChatMessage: (role: 'user' | 'assistant', content: string) => void;
+  addChatMessage: (role: 'user' | 'assistant', content: string, meta?: { frameId?: string; colourwayId?: string }) => void;
   clearChatHistory: () => void;
+
+  // Saved/bookmarked frames
+  savedFrames: string[];
+  addSavedFrame: (id: string) => void;
+  removeSavedFrame: (id: string) => void;
+
+  // Request frame — tracks which frames being requested from a store associate
+  requestingFrameIds: { frameId: string; colourwayId?: string }[];
+  setRequestingFrames: (frames: { frameId: string; colourwayId?: string }[]) => void;
 
   // Streaming text — displayed word-by-word over the orb
   streamingText: string;
@@ -112,16 +125,11 @@ interface AppState {
 
   // AI-recommended colourway (colourway id or null)
   aiRecommendedColourway: string | null;
-  setAiRecommendedColourway: (id: string | null) => void;
+  setAiRecommendedColourway: (id: string | null, forProductId?: string) => void;
 
   // Recommended frame size from face scan (e.g. 'standard' or 'large')
   recommendedSize: string | null;
   setRecommendedSize: (size: string | null) => void;
-
-  // Camera brightness — true when the camera background is light enough
-  // that white text should switch to dark for readability
-  isCameraLight: boolean;
-  setIsCameraLight: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -240,9 +248,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Chat history
   chatHistory: [],
-  addChatMessage: (role, content) =>
-    set((s) => ({ chatHistory: [...s.chatHistory, { role, content }] })),
+  addChatMessage: (role, content, meta) =>
+    set((s) => ({ chatHistory: [...s.chatHistory, { role, content, ...meta }] })),
   clearChatHistory: () => set({ chatHistory: [] }),
+
+  // Saved/bookmarked frames
+  savedFrames: [],
+  addSavedFrame: (id) =>
+    set((s) => ({ savedFrames: s.savedFrames.includes(id) ? s.savedFrames : [...s.savedFrames, id] })),
+  removeSavedFrame: (id) =>
+    set((s) => ({ savedFrames: s.savedFrames.filter((f) => f !== id) })),
+
+  // Request frame
+  requestingFrameIds: [],
+  setRequestingFrames: (requestingFrameIds) => set({ requestingFrameIds }),
 
   // Streaming text
   streamingText: '',
@@ -256,14 +275,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   recommendedSize: 'standard',
   setRecommendedSize: (recommendedSize) => set({ recommendedSize }),
 
-  // Camera brightness
-  isCameraLight: false,
-  setIsCameraLight: (isCameraLight) => set({ isCameraLight }),
-
-  // AI-recommended colourway — scoped to the current frame, accumulates all recommendations
+  // AI-recommended colourway — scoped to a frame, accumulates all recommendations
   aiRecommendedColourway: null,
-  setAiRecommendedColourway: (aiRecommendedColourway) => {
-    const pid = get().activeProductId;
+  setAiRecommendedColourway: (aiRecommendedColourway, forProductId) => {
+    const pid = forProductId ?? get().activeProductId;
     const frameAiColourways = { ...get().frameAiColourways };
     if (aiRecommendedColourway) {
       const existing = frameAiColourways[pid] ?? [];

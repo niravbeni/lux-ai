@@ -10,17 +10,17 @@ export default function TransitionScreen() {
   const setScreen = useAppStore((s) => s.setScreen);
   const setOrbState = useAppStore((s) => s.setOrbState);
   const setAssistantMessage = useAppStore((s) => s.setAssistantMessage);
+  const clearChatHistory = useAppStore((s) => s.clearChatHistory);
   const activeProductId = useAppStore((s) => s.activeProductId);
 
   useEffect(() => {
     setOrbState('idle');
+    clearChatHistory();
 
     const product = getProduct(activeProductId);
 
-    // Ensure preload is triggered for the active product
     useGLTF.preload(product.modelPath);
 
-    // Wait for BOTH: minimum display time AND model fully downloaded
     const minDelay = new Promise((r) => setTimeout(r, 1200));
     const modelReady = fetch(product.modelPath, { cache: 'force-cache' })
       .catch(() => {});
@@ -29,7 +29,7 @@ export default function TransitionScreen() {
       setAssistantMessage('');
       setScreen('viewer-hub');
     });
-  }, [setScreen, setOrbState, setAssistantMessage, activeProductId]);
+  }, [setScreen, setOrbState, setAssistantMessage, clearChatHistory, activeProductId]);
 
   return (
     <motion.div

@@ -7,31 +7,15 @@ import { OrbitControls, Environment, ContactShadows } from '@react-three/drei';
 import { useAppStore } from '@/store/app-store';
 import { getProduct, getColourway } from '@/data/product-catalog';
 import { dialogueScripts, pickRandom } from '@/data/dialogue-scripts';
-import SuggestionPills from './suggestion-pills';
 import FrameModel from './frame-model';
+import ChatDrawer from './chat-drawer';
+import SuggestionPills from './suggestion-pills';
 import VoiceInput from '@/components/voice/voice-input';
 import OrbCanvas from '@/components/orb/orb-canvas';
 import { speak, stopSpeaking } from '@/lib/tts';
 
 function ModelFallback() {
   return null;
-}
-
-/** Truncate text to ~3 visible lines, always ending at a sentence boundary. */
-function truncateAtSentence(text: string, maxLen = 150): string {
-  if (!text || text.length <= maxLen) return text;
-  const truncated = text.slice(0, maxLen);
-  const lastEnd = Math.max(
-    truncated.lastIndexOf('. '),
-    truncated.lastIndexOf('! '),
-    truncated.lastIndexOf('? '),
-    truncated.lastIndexOf('.'),
-    truncated.lastIndexOf('!'),
-    truncated.lastIndexOf('?'),
-  );
-  if (lastEnd > maxLen * 0.35) return truncated.slice(0, lastEnd + 1).trim();
-  const lastSpace = truncated.lastIndexOf(' ');
-  return (lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated).trim() + '…';
 }
 
 export default function ViewerHub() {
@@ -46,13 +30,10 @@ export default function ViewerHub() {
   const transcript = useAppStore((s) => s.transcript);
   const isListening = useAppStore((s) => s.isListening);
   const recommendedProductId = useAppStore((s) => s.recommendedProductId);
-  const isCameraLight = useAppStore((s) => s.isCameraLight);
   const setActiveProductId = useAppStore((s) => s.setActiveProductId);
   const setRecommendedProductId = useAppStore((s) => s.setRecommendedProductId);
-  const clearChatHistory = useAppStore((s) => s.clearChatHistory);
   const setStreamingText = useAppStore((s) => s.setStreamingText);
 
-  // Carousel state
   const frameHistory = useAppStore((s) => s.frameHistory);
   const frameHistoryIndex = useAppStore((s) => s.frameHistoryIndex);
   const navigateCarousel = useAppStore((s) => s.navigateCarousel);
@@ -64,38 +45,39 @@ export default function ViewerHub() {
   const canGoNext = frameHistoryIndex < frameHistory.length - 1;
   const product = getProduct(activeProductId);
 
-  // Track when conversation mode has been entered at least once,
-  // so the OrbCanvas only mounts after the first real use (avoids flash).
   useEffect(() => {
     if (isConversing && !hasEnteredConversation) {
       setHasEnteredConversation(true);
     }
   }, [isConversing, hasEnteredConversation]);
 
-  // After each product switch, reset slide direction to "forward" so that
-  // the next AI-triggered change always slides in from the right.
-  // Carousel swipe handlers set direction *before* the product changes,
-  // so the initial animation frame uses the correct direction.
   useEffect(() => {
     const timeout = setTimeout(() => setSlideDirection(1), 400);
     return () => clearTimeout(timeout);
   }, [activeProductId]);
 
-  useEffect(() => {
-    clearChatHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Chat history is preserved across sub-screen navigation (colour-mode, fit-mode, etc.)
+  // It only resets when a new product session starts via the scanner.
 
   useEffect(() => {
     if (!assistantMessage) {
       const greeting = pickRandom(dialogueScripts.hub.greetings);
       setAssistantMessage(greeting);
+      const store = useAppStore.getState();
+      if (store.chatHistory.length === 0) {
+        store.addChatMessage('assistant', greeting, {
+          frameId: activeProductId,
+          colourwayId: activeColourway,
+        });
+      }
       speak(greeting).catch(() => {});
     }
-  }, [assistantMessage, setAssistantMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setActiveColourway = useAppStore((s) => s.setActiveColourway);
   const setAiRecommendedColourway = useAppStore((s) => s.setAiRecommendedColourway);
+  const colourResult = useAppStore((s) => s.colourResult);
 
   const handleExitConversation = useCallback(() => {
     stopSpeaking();
@@ -109,7 +91,7 @@ export default function ViewerHub() {
   const handleViewRecommended = useCallback(() => {
     if (!recommendedProductId) return;
     const recProduct = getProduct(recommendedProductId);
-    setSlideDirection(1); // New frame always slides in from the right
+    setSlideDirection(1);
     setActiveProductId(recommendedProductId);
     setRecommendedProductId(null);
     setIsConversing(false);
@@ -122,34 +104,22 @@ export default function ViewerHub() {
     speak(msg).catch(() => {});
   }, [recommendedProductId, setActiveProductId, setRecommendedProductId, setIsConversing, setStreamingText, setAssistantMessage, setActiveColourway]);
 
-  // ── Shared carousel navigation ───────────────────────────────────────
-  // Restores per-frame colourway and clears cross-frame AI recommendation
   const goToFrame = useCallback(
     (direction: 'prev' | 'next') => {
       const targetIndex = direction === 'prev' ? frameHistoryIndex - 1 : frameHistoryIndex + 1;
       if (targetIndex < 0 || targetIndex >= frameHistory.length) return;
-
       const targetId = frameHistory[targetIndex];
       const targetProduct = getProduct(targetId);
       setSlideDirection(direction === 'next' ? 1 : -1);
-
-      // Navigate first so activeProductId updates, then restore colourway
       navigateCarousel(direction);
-
-      // Restore saved colourway for the target frame, or fall back to its default
       const savedCw = frameColourways[targetId];
       setActiveColourway(savedCw ?? targetProduct.colourways[0]?.id ?? '');
-
-      // Clear the global aiRecommendedColourway — per-frame data lives in
-      // frameAiColourways and the pill builder reads from there directly.
       setAiRecommendedColourway(null);
-
       setAssistantMessage(`Here's the ${targetProduct.name}.`);
     },
-    [frameHistory, frameHistoryIndex, frameColourways, frameAiColourways, navigateCarousel, setActiveColourway, setAiRecommendedColourway, setAssistantMessage],
+    [frameHistory, frameHistoryIndex, frameColourways, navigateCarousel, setActiveColourway, setAiRecommendedColourway, setAssistantMessage],
   );
 
-  // ── Carousel swipe handler ──────────────────────────────────────────
   const SWIPE_THRESHOLD = 60;
   const handlePanEnd = useCallback(
     (_event: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
@@ -157,7 +127,6 @@ export default function ViewerHub() {
       const { offset, velocity } = info;
       const isHorizontalSwipe = Math.abs(offset.x) > Math.abs(offset.y) * 1.5;
       if (!isHorizontalSwipe) return;
-
       if (offset.x < -SWIPE_THRESHOLD || (velocity.x < -300 && offset.x < -20)) {
         if (canGoNext) goToFrame('next');
       } else if (offset.x > SWIPE_THRESHOLD || (velocity.x > 300 && offset.x > 20)) {
@@ -167,26 +136,18 @@ export default function ViewerHub() {
     [isConversing, canGoNext, canGoPrev, goToFrame],
   );
 
-  const colourResult = useAppStore((s) => s.colourResult);
-  const aiRecommendedColourway = useAppStore((s) => s.aiRecommendedColourway);
-
+  // Build colourway pills
   const activeColourwayData = product.colourways.find((c) => c.id === activeColourway);
   const colourwayName = activeColourwayData?.name ?? product.colourways[0]?.name ?? 'Default';
-
-  // Build the list of colourway pills to show in the header:
-  // Always show the default (first) colourway, plus any recommended colourways from
-  // colour match AND/OR AI assistant recommendations SCOPED TO THIS FRAME.
   const defaultCw = product.colourways[0];
   const availablePills = [defaultCw];
   const addedIds = new Set([defaultCw?.id]);
 
-  // Add colour-match results
   if (colourResult) {
     if (!addedIds.has(colourResult.topMatch.id)) { availablePills.push(colourResult.topMatch); addedIds.add(colourResult.topMatch.id); }
     if (!addedIds.has(colourResult.alternative.id)) { availablePills.push(colourResult.alternative); addedIds.add(colourResult.alternative.id); }
   }
 
-  // Add ALL AI-recommended colourways for THIS frame (accumulates across conversation)
   const thisFrameAiCws = frameAiColourways[activeProductId] ?? [];
   for (const cwId of thisFrameAiCws) {
     if (!addedIds.has(cwId)) {
@@ -196,9 +157,6 @@ export default function ViewerHub() {
   }
 
   const showColourPills = availablePills.length > 1;
-
-  // When camera bg is light AND we're in product mode, switch to dark text
-  const light = isCameraLight && !isConversing;
 
   const handleColourwaySwitch = (cwId: string) => {
     setActiveColourway(cwId);
@@ -212,151 +170,48 @@ export default function ViewerHub() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
     >
-      {/* ─── VIEW AREA ─── */}
-      <div className="relative z-10 flex-1 w-full min-h-0">
-
-        {/* 3D Frame Canvas — swipeable carousel.
-             Hidden when conversing, shown when not. Simple CSS toggle. */}
-        <div
-          className="absolute inset-0"
-          style={{ display: isConversing ? 'none' : 'block' }}
-          onPointerUp={() => {}} // keeps React event delegation
-        >
-        <motion.div
-          className="absolute inset-0"
-          onPanEnd={handlePanEnd}
-        >
-          <AnimatePresence mode="wait" custom={slideDirection}>
-            <motion.div
-              key={activeProductId}
-              className="absolute inset-0"
-              custom={slideDirection}
-              variants={{
-                enter: (dir: number) => ({
-                  x: dir > 0 ? '40%' : dir < 0 ? '-40%' : 0,
-                  opacity: 0,
-                }),
-                center: { x: 0, opacity: 1 },
-                exit: (dir: number) => ({
-                  x: dir > 0 ? '-40%' : dir < 0 ? '40%' : 0,
-                  opacity: 0,
-                }),
-              }}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
-            >
-              <Canvas
-                camera={{ position: [0, 0.15, 3.0], fov: 30 }}
-                gl={{ alpha: true, antialias: true }}
-                dpr={[1, 2]}
-                className="!absolute inset-0"
-                style={{ background: 'transparent' }}
-                onCreated={({ gl }) => {
-                  gl.setClearColor(0x000000, 0);
-                }}
-              >
-                <Suspense fallback={<ModelFallback />}>
-                  <ambientLight intensity={1.0} />
-                  <directionalLight position={[5, 8, 5]} intensity={1.8} color="#ffffff" />
-                  <directionalLight position={[-4, 4, 3]} intensity={0.8} color="#e8ddd0" />
-                  <directionalLight position={[0, -3, 5]} intensity={0.5} color="#d0dde8" />
-                  <directionalLight position={[0, 5, -3]} intensity={0.4} color="#c9a96e" />
-                  <Environment preset="studio" background={false} />
-                  <FrameModel modelPath={product.modelPath} />
-                  <ContactShadows
-                    position={[0, -1.2, 0]}
-                    opacity={0.15}
-                    scale={8}
-                    blur={3}
-                    far={4}
-                    color="#000000"
-                  />
-                  <OrbitControls
-                    enableZoom={false}
-                    enablePan={false}
-                    target={[0, 0.15, 0]}
-                    minPolarAngle={Math.PI / 3}
-                    maxPolarAngle={Math.PI / 1.8}
-                    minAzimuthAngle={-Math.PI / 3}
-                    maxAzimuthAngle={Math.PI / 3}
-                    rotateSpeed={0.5}
-                    dampingFactor={0.08}
-                    enableDamping
-                  />
-                </Suspense>
-              </Canvas>
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Carousel arrows — left / right edges */}
-          {frameHistory.length > 1 && (
-            <>
-              {/* Left arrow (previous frame) */}
-              <AnimatePresence>
-                {canGoPrev && (
-                  <motion.button
-                    key="arrow-prev"
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -8 }}
-                    transition={{ duration: 0.25 }}
-                    onClick={() => goToFrame('prev')}
-                    className={`absolute left-0 z-30 flex h-14 w-14 items-center justify-center transition-colors active:scale-90 ${light ? 'text-black/35 hover:text-black/60' : 'text-foreground/35 hover:text-foreground/60'}`}
-                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.1rem)' }}
-                  >
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="15 18 9 12 15 6" />
-                    </svg>
-                  </motion.button>
-                )}
-              </AnimatePresence>
-
-              {/* Right arrow (next frame) */}
-              <AnimatePresence>
-                {canGoNext && (
-                  <motion.button
-                    key="arrow-next"
-                    initial={{ opacity: 0, x: 8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 8 }}
-                    transition={{ duration: 0.25 }}
-                    onClick={() => goToFrame('next')}
-                    className={`absolute right-0 z-30 flex h-14 w-14 items-center justify-center transition-colors active:scale-90 ${light ? 'text-black/35 hover:text-black/60' : 'text-foreground/35 hover:text-foreground/60'}`}
-                    style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.1rem)' }}
-                  >
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  </motion.button>
-                )}
-              </AnimatePresence>
-            </>
-          )}
-
-          {/* Product name + carousel dots + colourway pills */}
+      {/* ─── PRODUCT MODE ─── */}
+      {!isConversing && (
+        <>
+          {/* Top bar — title + X on same line */}
           <div
-            className="absolute left-0 right-0 flex flex-col items-center gap-2 z-20"
-            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
+            className="absolute left-0 right-0 z-50 flex flex-col items-center"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.625rem)' }}
           >
-            {/* Product name with animated transition */}
-            <AnimatePresence mode="wait">
-              <motion.p
-                key={activeProductId}
-                className={`text-base tracking-wide font-light transition-colors duration-500 ${light ? 'text-black/60' : 'text-foreground/60'}`}
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                transition={{ duration: 0.25 }}
-              >
-                {product.name}
-              </motion.p>
-            </AnimatePresence>
+            <div className="flex items-center w-full px-4">
+              {/* Spacer to balance the X button on the right */}
+              <div className="w-10" />
 
-            {/* Carousel dots — shown when there are multiple frames */}
+              {/* Product name — centered */}
+              <div className="flex-1 flex justify-center">
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={activeProductId}
+                    className="text-base tracking-wide font-light text-foreground/60"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    {product.name}
+                  </motion.p>
+                </AnimatePresence>
+              </div>
+
+              {/* X close button */}
+              <button
+                onClick={() => setScreen('scanner')}
+                className="flex h-10 w-10 items-center justify-center text-foreground/50 hover:text-foreground/80 transition-colors active:scale-90"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                </svg>
+              </button>
+            </div>
+
             {frameHistory.length > 1 && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 mt-1.5">
                 {frameHistory.map((fId, i) => (
                   <button
                     key={fId}
@@ -364,7 +219,6 @@ export default function ViewerHub() {
                       if (i === frameHistoryIndex) return;
                       setSlideDirection(i > frameHistoryIndex ? 1 : -1);
                       const targetProduct = getProduct(frameHistory[i]);
-                      // Restore saved colourway for target frame
                       useAppStore.getState().setFrameHistoryIndex(i);
                       const savedCw = frameColourways[fId];
                       setActiveColourway(savedCw ?? targetProduct.colourways[0]?.id ?? '');
@@ -380,9 +234,7 @@ export default function ViewerHub() {
                         width: i === frameHistoryIndex ? 18 : 5,
                         height: 5,
                         backgroundColor:
-                          i === frameHistoryIndex
-                            ? (light ? 'rgba(0, 0, 0, 0.6)' : 'var(--gold)')
-                            : (light ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.2)'),
+                          i === frameHistoryIndex ? 'rgba(255, 255, 255, 0.85)' : 'rgba(255, 255, 255, 0.2)',
                       }}
                       transition={{ duration: 0.3, ease: 'easeOut' }}
                     />
@@ -390,212 +242,239 @@ export default function ViewerHub() {
                 ))}
               </div>
             )}
-
-            {/* "View recommended" pill — shown during conversation when AI suggests a new frame */}
-            {isConversing && recommendedProductId && recommendedProductId !== activeProductId && (
-              <motion.button
-                onClick={handleViewRecommended}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs tracking-wide bg-gold/15 backdrop-blur-md text-gold/90 border border-gold/20 hover:border-gold/40 transition-all active:scale-95"
-              >
-                View {getProduct(recommendedProductId).name}
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </motion.button>
-            )}
-
-            {/* Colourway pills — switchable if colour match has been done */}
-            {showColourPills ? (
-              <div className="flex flex-wrap justify-center gap-1.5 px-10 max-w-full">
-                {availablePills.map((cw) => {
-                  const isActive = cw.id === activeColourway;
-                  return (
-                    <button
-                      key={cw.id}
-                      onClick={() => handleColourwaySwitch(cw.id)}
-                      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs tracking-wide whitespace-nowrap backdrop-blur-md transition-all duration-300 ${
-                        isActive
-                          ? (light ? 'bg-black/8 text-black/60 border border-black/10' : 'bg-white/10 text-foreground/60 border border-white/15')
-                          : (light ? 'bg-black/4 text-black/30 border border-black/5 hover:bg-black/8 hover:text-black/40' : 'bg-white/5 text-foreground/30 border border-white/5 hover:bg-white/8 hover:text-foreground/40')
-                      }`}
-                    >
-                      <div
-                        className="w-2.5 h-2.5 rounded-full border flex-shrink-0"
-                        style={{
-                          backgroundColor: cw.color,
-                          borderColor: isActive ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)',
-                        }}
-                      />
-                      {cw.name}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className={`rounded-full px-3.5 py-1.5 text-xs tracking-wide backdrop-blur-md transition-colors duration-500 ${light ? 'bg-black/5 text-black/35 border border-black/5' : 'bg-white/5 text-foreground/35 border border-white/5'}`}>
-                {colourwayName}
-              </div>
-            )}
           </div>
-        </motion.div>
-        </div>
 
-        {/* AI Orb — shown when conversing, hidden when not.
-             Simple CSS display toggle, no transitions or overlays. */}
-        <div
-          className="absolute inset-0"
-          style={{ display: isConversing ? 'block' : 'none' }}
-        >
-          {hasEnteredConversation && (
-            <OrbCanvas
-              scale={1}
-              interactive={isConversing}
-              offsetY={0.3}
-              className="w-full h-full"
-            />
-          )}
-
-          {/* Close button — just the X, no circle */}
-          <button
-            onClick={handleExitConversation}
-            className="absolute right-4 z-30 flex h-12 w-12 items-center justify-center text-foreground/40 hover:text-foreground/70 transition-colors active:scale-90"
-            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
-              <line x1="6" y1="6" x2="18" y2="18" />
-              <line x1="18" y1="6" x2="6" y2="18" />
-            </svg>
-          </button>
-
-          {/* User transcript + AI streaming text */}
-          <div
-            className="absolute inset-x-0 z-20 flex flex-col items-center pointer-events-none"
-            style={{ top: '15%', bottom: 'max(8.5rem, calc(env(safe-area-inset-bottom, 0px) + 8rem))' }}
-          >
-            <div className="flex-1" />
-            <div className="px-8 pb-2 w-full max-w-sm space-y-3">
-              {/* User's spoken words — shown while listening or just after */}
-              <AnimatePresence>
-                {isConversing && (transcript || isListening) && !streamingText && (
-                  <motion.div
-                    key="user-transcript"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    transition={{ duration: 0.25 }}
-                  >
-                    {transcript ? (
-                      <p className="text-foreground/70 text-sm leading-relaxed text-center italic">
-                        {transcript}
-                      </p>
-                    ) : isListening ? (
-                      <p className="text-foreground/30 text-xs text-center">Listening...</p>
-                    ) : null}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* AI response */}
-              <AnimatePresence mode="wait">
-                {streamingText && (
-                  <motion.div
-                    key="streaming"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <p className="text-foreground/80 text-sm leading-relaxed text-center">
-                      {streamingText}
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {recommendedProductId && recommendedProductId !== activeProductId && (
+          {/* 3D Frame Canvas — fills the area above the bottom sections */}
+          <div className="absolute inset-0" style={{ bottom: 220 }} onPointerUp={() => {}}>
+            <motion.div className="absolute inset-0" onPanEnd={handlePanEnd}>
+              <AnimatePresence mode="wait" custom={slideDirection}>
                 <motion.div
-                  className="flex justify-center mt-4 pointer-events-auto"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
+                  key={activeProductId}
+                  className="absolute inset-0"
+                  custom={slideDirection}
+                  variants={{
+                    enter: (dir: number) => ({ x: dir > 0 ? '40%' : dir < 0 ? '-40%' : 0, opacity: 0 }),
+                    center: { x: 0, opacity: 1 },
+                    exit: (dir: number) => ({ x: dir > 0 ? '-40%' : dir < 0 ? '40%' : 0, opacity: 0 }),
+                  }}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
                 >
-                  <button
-                    onClick={handleViewRecommended}
-                    className="glass-card rounded-full px-5 py-2.5 text-gold/90 text-xs tracking-wide border border-gold/20 hover:border-gold/40 transition-all active:scale-95"
+                  <Canvas
+                    camera={{ position: [0, 0.15, 3.8], fov: 30 }}
+                    gl={{ alpha: true, antialias: true }}
+                    dpr={[1, 2]}
+                    className="!absolute inset-0"
+                    style={{ background: 'transparent' }}
+                    onCreated={({ gl }) => { gl.setClearColor(0x000000, 0); }}
                   >
-                    View {getProduct(recommendedProductId).name}
-                  </button>
+                    <Suspense fallback={<ModelFallback />}>
+                      <ambientLight intensity={1.0} />
+                      <directionalLight position={[5, 8, 5]} intensity={1.8} color="#ffffff" />
+                      <directionalLight position={[-4, 4, 3]} intensity={0.8} color="#e8ddd0" />
+                      <directionalLight position={[0, -3, 5]} intensity={0.5} color="#d0dde8" />
+                      <directionalLight position={[0, 5, -3]} intensity={0.4} color="#c9a96e" />
+                      <Environment preset="studio" background={false} />
+                      <FrameModel modelPath={product.modelPath} />
+                      <ContactShadows position={[0, -1.2, 0]} opacity={0.15} scale={8} blur={3} far={4} color="#000000" />
+                      <OrbitControls
+                        enableZoom={false}
+                        enablePan={false}
+                        target={[0, 0.15, 0]}
+                        minPolarAngle={Math.PI / 3}
+                        maxPolarAngle={Math.PI / 1.8}
+                        minAzimuthAngle={-Math.PI / 3}
+                        maxAzimuthAngle={Math.PI / 3}
+                        rotateSpeed={0.5}
+                        dampingFactor={0.08}
+                        enableDamping
+                      />
+                    </Suspense>
+                  </Canvas>
                 </motion.div>
+              </AnimatePresence>
+
+              {/* Carousel arrows */}
+              {frameHistory.length > 1 && (
+                <>
+                  <AnimatePresence>
+                    {canGoPrev && (
+                      <motion.button
+                        key="arrow-prev"
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -8 }}
+                        transition={{ duration: 0.25 }}
+                        onClick={() => goToFrame('prev')}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 z-30 flex h-14 w-14 items-center justify-center transition-colors active:scale-90 text-foreground/35 hover:text-foreground/60"
+                      >
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+                  <AnimatePresence>
+                    {canGoNext && (
+                      <motion.button
+                        key="arrow-next"
+                        initial={{ opacity: 0, x: 8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 8 }}
+                        transition={{ duration: 0.25 }}
+                        onClick={() => goToFrame('next')}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 z-30 flex h-14 w-14 items-center justify-center transition-colors active:scale-90 text-foreground/35 hover:text-foreground/60"
+                      >
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+                </>
               )}
+            </motion.div>
+          </div>
+
+          {/* Available colours + Suggestion pills — positioned above the drawer */}
+          <div
+            className="absolute left-0 right-0 z-30 flex justify-center px-4"
+            style={{ bottom: 210 }}
+          >
+            <div className="flex flex-col items-start gap-3 w-full max-w-sm">
+              {/* Available colours label + pills */}
+              <div className="flex flex-col items-start gap-1.5">
+                <p className="text-[9px] tracking-[0.9px] uppercase text-foreground/60">
+                  Available colours
+                </p>
+                {showColourPills ? (
+                  <div className="flex flex-wrap justify-start gap-1.5 max-w-full">
+                    {availablePills.map((cw) => {
+                      const isActive = cw.id === activeColourway;
+                      return (
+                        <button
+                          key={cw.id}
+                          onClick={() => handleColourwaySwitch(cw.id)}
+                          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs tracking-wide whitespace-nowrap backdrop-blur-md transition-all duration-300 ${
+                            isActive
+                              ? 'bg-white/10 text-foreground/60 border border-white/15'
+                              : 'bg-white/5 text-foreground/30 border border-white/5 hover:bg-white/8 hover:text-foreground/40'
+                          }`}
+                        >
+                          <div
+                            className="w-2.5 h-2.5 rounded-full border flex-shrink-0"
+                            style={{
+                              backgroundColor: cw.color,
+                              borderColor: isActive ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)',
+                            }}
+                          />
+                          {cw.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-full px-3.5 py-1.5 text-xs tracking-wide backdrop-blur-md bg-white/5 text-foreground/35 border border-white/5">
+                    {colourwayName}
+                  </div>
+                )}
+              </div>
+
+              {/* Suggestion pills — between colourways and drawer */}
+              <SuggestionPills />
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* ─── Conversation mode: mic button absolutely positioned so the
-           orb fills the entire screen with no flex boundary line ─── */}
-      {isConversing && (
-        <div
-          className="absolute left-0 right-0 z-30 flex flex-col items-center"
-          style={{ bottom: 'max(2rem, calc(env(safe-area-inset-bottom, 0px) + 1.5rem))' }}
-        >
-          <VoiceInput />
-        </div>
+          {/* Chat Drawer — bottom */}
+          <ChatDrawer />
+        </>
       )}
 
-      {/* ─── BOTTOM CONTROLS (product mode only) ─── */}
-      {!isConversing && (
-        /* Product mode: full bottom panel */
-        <motion.div
-          className="relative z-20 flex flex-col gap-6 pt-6 px-6"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        >
-          {assistantMessage && (
-            <motion.div
-              className="px-2"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.5 }}
-            >
-              <p className={`text-sm leading-relaxed text-center transition-colors duration-500 ${light ? 'text-black/60' : 'text-foreground/70'}`}>
-                {truncateAtSentence(assistantMessage)}
-              </p>
-            </motion.div>
-          )}
+      {/* ─── CONVERSATION MODE (unchanged) ─── */}
+      {isConversing && (
+        <div className="relative flex-1 w-full min-h-0">
+          <div className="absolute inset-0">
+            {hasEnteredConversation && (
+              <OrbCanvas scale={1} interactive={isConversing} offsetY={0.3} className="w-full h-full" />
+            )}
 
-          <SuggestionPills />
-
-          <VoiceInput />
-
-          <div className="flex items-center justify-between pt-1">
             <button
-              onClick={() => setScreen('scanner')}
-              className={`text-base py-2.5 tracking-wide transition-colors duration-500 ${light ? 'text-black/30 hover:text-black/50' : 'text-foreground/30 hover:text-foreground/50'}`}
+              onClick={handleExitConversation}
+              className="absolute right-4 z-30 flex h-12 w-12 items-center justify-center text-foreground/40 hover:text-foreground/70 transition-colors active:scale-90"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
             >
-              Scan another
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="6" y1="6" x2="18" y2="18" />
+                <line x1="18" y1="6" x2="6" y2="18" />
+              </svg>
             </button>
-            <button
-              onClick={() => setScreen('save-modal')}
-              className={`text-base py-2.5 tracking-wide transition-colors duration-500 ${light ? 'text-black/50 hover:text-black/70' : 'text-foreground/40 hover:text-foreground/60'}`}
+
+            <div
+              className="absolute inset-x-0 z-20 flex flex-col items-center pointer-events-none"
+              style={{ top: '15%', bottom: 'max(8.5rem, calc(env(safe-area-inset-bottom, 0px) + 8rem))' }}
             >
-              Share with store associate
-            </button>
+              <div className="flex-1" />
+              <div className="px-8 pb-2 w-full max-w-sm space-y-3">
+                <AnimatePresence>
+                  {(transcript || isListening) && !streamingText && (
+                    <motion.div
+                      key="user-transcript"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      {transcript ? (
+                        <p className="text-foreground/70 text-sm leading-relaxed text-center italic">{transcript}</p>
+                      ) : isListening ? (
+                        <p className="text-foreground/30 text-xs text-center">Listening...</p>
+                      ) : null}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <AnimatePresence mode="wait">
+                  {streamingText && (
+                    <motion.div
+                      key="streaming"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <p className="text-foreground/80 text-sm leading-relaxed text-center">{streamingText}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {recommendedProductId && recommendedProductId !== activeProductId && (
+                  <motion.div
+                    className="flex justify-center mt-4 pointer-events-auto"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <button
+                      onClick={handleViewRecommended}
+                      className="glass-card rounded-full px-5 py-2.5 text-foreground/70 text-xs tracking-wide border border-white/20 hover:border-white/35 transition-all active:scale-95"
+                    >
+                      View {getProduct(recommendedProductId).name}
+                    </button>
+                  </motion.div>
+                )}
+              </div>
+            </div>
           </div>
-        </motion.div>
+
+          <div
+            className="absolute left-0 right-0 z-30 flex flex-col items-center"
+            style={{ bottom: 'max(2rem, calc(env(safe-area-inset-bottom, 0px) + 1.5rem))' }}
+          >
+            <VoiceInput />
+          </div>
+        </div>
       )}
     </motion.div>
   );

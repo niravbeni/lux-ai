@@ -132,7 +132,7 @@ export default function DetailsMode() {
                         {key}
                       </p>
                       {isRecommended && (
-                        <span className="text-[10px] tracking-wider uppercase text-foreground/60 bg-white/10 rounded-full px-1.5 py-0.5">
+                        <span className="text-[9px] tracking-wider uppercase text-foreground/60 bg-white/10 border border-white/15 rounded-full px-2.5 py-1 leading-none whitespace-nowrap">
                           Best fit
                         </span>
                       )}

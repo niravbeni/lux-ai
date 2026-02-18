@@ -3,8 +3,8 @@
 :root {
   --background: #0e0e10;
   --foreground: #F5F0EB;
-  --gold: #2A5BB8;
-  --gold-light: #3D6EC8;
+  --gold: #F5F0EB;
+  --gold-light: #FFFFFF;
   --glass: rgba(255, 255, 255, 0.06);
   --glass-border: rgba(255, 255, 255, 0.1);
 }

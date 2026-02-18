@@ -41,6 +41,12 @@ const DetailsMode = dynamic(() => import('@/components/modes/details-mode'), {
 const SaveModal = dynamic(() => import('@/components/ui/save-modal'), {
   ssr: false,
 });
+const FramesOverview = dynamic(() => import('@/components/screens/frames-overview'), {
+  ssr: false,
+});
+const RequestFrame = dynamic(() => import('@/components/screens/request-frame'), {
+  ssr: false,
+});
 
 export default function AppShell() {
   const screen = useAppStore((s) => s.screen);
@@ -109,6 +115,8 @@ export default function AppShell() {
           {screen === 'fit-mode' && <FitMode key="fit-mode" />}
           {screen === 'details-mode' && <DetailsMode key="details-mode" />}
           {screen === 'save-modal' && <SaveModal key="save-modal" />}
+          {screen === 'frames-overview' && <FramesOverview key="frames-overview" />}
+          {screen === 'request-frame' && <RequestFrame key="request-frame" />}
         </AnimatePresence>
       </div>
     </>

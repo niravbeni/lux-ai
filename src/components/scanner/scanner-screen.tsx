@@ -7,8 +7,6 @@ import { useGLTF } from '@react-three/drei';
 import { useAppStore } from '@/store/app-store';
 import { productData } from '@/data/product-data';
 import { triggerHaptic } from '@/lib/haptics';
-import { useCameraBrightness } from '@/lib/use-camera-brightness';
-
 // Preload the GLB model while user is scanning
 useGLTF.preload(productData.modelPath);
 
@@ -21,12 +19,6 @@ export default function ScannerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const hasScanned = useRef(false);
-
-  const getVideo = useCallback(
-    () => document.querySelector<HTMLVideoElement>('#qr-scanner-region video'),
-    [],
-  );
-  const isLight = useCameraBrightness(getVideo, scanning);
 
   const handleScanSuccess = useCallback(
     (decodedText: string) => {
@@ -160,16 +152,19 @@ export default function ScannerScreen() {
         </div>
       )}
 
+      {/* Bottom gradient overlay for text readability */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 h-[45%] bg-gradient-to-t from-black/70 via-black/30 to-transparent pointer-events-none" />
+
       {/* Bottom UI */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-5 px-6 transition-colors duration-500`}
+        className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-5 px-6"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.5rem)' }}
       >
         <div className="text-center space-y-2">
-          <p className={`text-xs tracking-[0.2em] uppercase transition-colors duration-500 ${isLight ? 'text-black/50' : 'text-foreground/60'}`}>
+          <p className="text-xs tracking-[0.2em] uppercase text-foreground/60">
             Scan to discover
           </p>
-          <p className={`text-base leading-relaxed max-w-[280px] transition-colors duration-500 ${isLight ? 'text-black/70' : 'text-foreground/80'}`}>
+          <p className="text-base leading-relaxed max-w-[280px] text-foreground/80">
             Point your camera at a QR code or frame.
           </p>
         </div>
@@ -178,16 +173,16 @@ export default function ScannerScreen() {
           onClick={handleSkipScan}
           className="group relative overflow-hidden rounded-full px-8 py-3.5 transition-all duration-300 active:scale-95"
         >
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-gold/20 via-gold/30 to-gold/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <div className="absolute inset-0 rounded-full border border-gold/40 group-hover:border-gold/60 transition-colors duration-300" />
-          <span className="relative text-sm font-medium tracking-wide text-gold">
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-white/10 via-white/20 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors duration-300" />
+          <span className="relative text-sm font-medium tracking-wide text-foreground/80">
             Skip scan
           </span>
         </button>
 
         <button
           onClick={() => setScreen('landing')}
-          className={`text-xs tracking-[0.15em] uppercase transition-colors duration-500 py-2 ${isLight ? 'text-black/30 hover:text-black/50' : 'text-foreground/30 hover:text-foreground/50'}`}
+          className="text-xs tracking-[0.15em] uppercase py-2 text-foreground/30 hover:text-foreground/50"
         >
           Go back
         </button>

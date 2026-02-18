@@ -1,8 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { useAppStore } from '@/store/app-store';
-import { useCameraBrightness } from '@/lib/use-camera-brightness';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Full-screen blurred camera feed used as an ambient background.
@@ -10,18 +8,13 @@ import { useCameraBrightness } from '@/lib/use-camera-brightness';
  * reflects the scene in front of the user. On desktop falls back to
  * the front camera. Transparent fallback if camera access is denied.
  *
- * The component stays mounted for the entire viewer-hub lifetime so
- * the camera stream is never destroyed.
- *
- * Also samples brightness and stores `isCameraLight` in Zustand so
- * that overlaid text can switch to dark colours on bright scenes.
+ * A dark overlay is placed on top so white text always remains legible.
  */
 export default function CameraBackground() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [ready, setReady] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(false);
-  const setIsCameraLight = useAppStore((s) => s.setIsCameraLight);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,30 +56,30 @@ export default function CameraBackground() {
     };
   }, []);
 
-  const getVideo = useCallback(() => videoRef.current, []);
-  const isLight = useCameraBrightness(getVideo, ready);
-
-  useEffect(() => {
-    setIsCameraLight(isLight);
-  }, [isLight, setIsCameraLight]);
-
   return (
-    <video
-      ref={videoRef}
-      autoPlay
-      playsInline
-      muted
-      className="fixed inset-0 w-full h-full"
-      style={{
-        objectFit: 'cover',
-        transform: `${isFrontCamera ? 'scaleX(-1) ' : ''}scale(1.15)`,
-        filter: 'blur(40px) brightness(0.5) saturate(1.2)',
-        opacity: ready ? 1 : 0,
-        transition: 'opacity 0.6s ease-in-out',
-        willChange: 'opacity',
-        zIndex: 0,
-        pointerEvents: 'none',
-      }}
-    />
+    <>
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className="fixed inset-0 w-full h-full"
+        style={{
+          objectFit: 'cover',
+          transform: `${isFrontCamera ? 'scaleX(-1) ' : ''}scale(1.15)`,
+          filter: 'blur(40px) saturate(1.2)',
+          opacity: ready ? 1 : 0,
+          transition: 'opacity 0.6s ease-in-out',
+          willChange: 'opacity',
+          zIndex: 0,
+          pointerEvents: 'none',
+        }}
+      />
+      {/* Dark overlay so white text stays legible over any camera feed */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.45)', zIndex: 0 }}
+      />
+    </>
   );
 }

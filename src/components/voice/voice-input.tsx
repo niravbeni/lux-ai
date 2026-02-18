@@ -9,6 +9,21 @@ import { triggerHaptic } from '@/lib/haptics';
 import { speak, stopSpeaking, warmUpTTS, unlockAudioPlayback } from '@/lib/tts';
 import { getProduct, getColourway, registerColourway } from '@/data/product-catalog';
 
+// Keyword-to-product mapping for fallback frame detection when the AI
+// forgets to include an explicit [FRAME:...] tag in its response.
+const FRAME_KEYWORDS: { pattern: RegExp; id: string }[] = [
+  { pattern: /\baviator\b/i, id: 'rayban-aviator' },
+  { pattern: /\boakley\b|\bvanguard\b/i, id: 'oakley-vanguard' },
+  { pattern: /\bray[- ]?ban meta\b|\bmeta smart\b/i, id: 'rayban-meta' },
+];
+
+function inferFrameFromText(text: string): string | null {
+  for (const { pattern, id } of FRAME_KEYWORDS) {
+    if (pattern.test(text)) return id;
+  }
+  return null;
+}
+
 // Strip [FRAME:product-id] and [COLOUR:...] tags from text and extract ids.
 // Supports both existing colourway IDs and custom colours:
 //   [COLOUR:havana]                → existing id lookup
@@ -28,7 +43,6 @@ function parseTags(text: string): {
   if (colourMatch) {
     const val = colourMatch[1];
     if (val.includes('|')) {
-      // Custom colour: "Navy Blue|#1a237e"
       const [name, hex] = val.split('|').map((s) => s.trim());
       if (name && hex && /^#[0-9a-f]{3,8}$/i.test(hex)) {
         const id = name.toLowerCase().replace(/\s+/g, '-');
@@ -36,20 +50,19 @@ function parseTags(text: string): {
         customColour = { name, hex };
       }
     } else {
-      // Existing colourway id
       colourId = val;
     }
   }
 
-  return {
-    clean: text
-      .replace(/\s*\[FRAME:[a-z0-9-]+\]/gi, '')
-      .replace(/\s*\[COLOUR:[^\]]+\]/gi, '')
-      .trim(),
-    frameId: frameMatch ? frameMatch[1] : null,
-    colourId,
-    customColour,
-  };
+  const clean = text
+    .replace(/\s*\[FRAME:[a-z0-9-]+\]/gi, '')
+    .replace(/\s*\[COLOUR:[^\]]+\]/gi, '')
+    .trim();
+
+  // Use explicit tag first; fall back to keyword detection from clean text
+  const frameId = frameMatch ? frameMatch[1] : inferFrameFromText(clean);
+
+  return { clean, frameId, colourId, customColour };
 }
 
 export default function VoiceInput() {
@@ -119,8 +132,22 @@ export default function VoiceInput() {
         onChunk(parseTags(fullText).clean);
       }
 
-      const { clean, frameId, colourId, customColour } = parseTags(fullText);
-      addChatMessage('assistant', clean);
+      const parsed = parseTags(fullText);
+      // Only keep fallback-inferred frameId when it points to a DIFFERENT product;
+      // if it matches the currently viewed one it's just the AI mentioning it, not
+      // recommending a switch.  Explicit [FRAME:] tags are always trusted.
+      const hasExplicitTag = /\[FRAME:\s*[a-z0-9-]+\s*\]/i.test(fullText);
+      const currentPid = useAppStore.getState().activeProductId;
+      const frameId =
+        hasExplicitTag || (parsed.frameId && parsed.frameId !== currentPid)
+          ? parsed.frameId
+          : null;
+      const { clean, colourId, customColour } = parsed;
+
+      addChatMessage('assistant', clean, {
+        frameId: frameId ?? undefined,
+        colourwayId: colourId ?? undefined,
+      });
       return { clean, frameId, colourId, customColour };
     },
     [activeProductId, addChatMessage],
@@ -169,27 +196,22 @@ export default function VoiceInput() {
             roughness: 0.3,
           });
         }
-        if (result.colourId) setAiRecommendedColourway(result.colourId);
+        // Store colourway against the TARGET product (which may differ from the current one)
+        if (result.colourId) {
+          setAiRecommendedColourway(result.colourId, result.frameId ?? undefined);
+        }
 
-        // Calm the orb while TTS audio is being fetched —
-        // speak() will set 'speaking' only when audio actually plays
         setOrbState('idle');
         triggerHaptic('light');
 
-        // Run TTS and a minimum reading timer in parallel —
-        // we want the user to have at least 3 seconds to read the text
-        // even if TTS resolves instantly (e.g., audio blocked on iOS).
         const ttsPromise = speak(result.clean).catch(() => {});
         const minReadDelay = new Promise((r) => setTimeout(r, 3000));
         await Promise.all([ttsPromise, minReadDelay]);
 
         // After TTS finishes: if the AI recommended a colourway (and/or frame),
         // automatically return to the product page so the user sees the result.
-        // Guard: only auto-exit if we're still in conversation mode (user may
-        // have already tapped "View" or closed, which exits conversation).
         const stillConversing = useAppStore.getState().isConversing;
         if (stillConversing && (result.colourId || result.frameId)) {
-          // Use fresh store read — activeProductId may have changed during TTS
           const currentProductId = useAppStore.getState().activeProductId;
           if (result.frameId && result.frameId !== currentProductId) {
             setActiveProductId(result.frameId);
@@ -199,7 +221,6 @@ export default function VoiceInput() {
           }
 
           await new Promise((r) => setTimeout(r, 800));
-          // Re-check — user might have exited during the delay
           if (useAppStore.getState().isConversing) {
             setIsConversing(false);
             setStreamingText('');
@@ -257,11 +278,13 @@ export default function VoiceInput() {
             roughness: 0.3,
           });
         }
-        if (result.colourId) setAiRecommendedColourway(result.colourId);
 
-        // Auto-apply colourway and/or frame switch in text mode too
+        // Switch frame first, then store/apply colourway against the correct product
         if (result.frameId && result.frameId !== activeProductId) {
           setActiveProductId(result.frameId);
+        }
+        if (result.colourId) {
+          setAiRecommendedColourway(result.colourId, result.frameId ?? undefined);
         }
         if (result.colourId && getColourway(result.colourId)) {
           setActiveColourway(result.colourId);
@@ -400,7 +423,7 @@ export default function VoiceInput() {
             onContextMenu={(e) => e.preventDefault()}
             className={`relative flex-shrink-0 flex h-16 w-16 items-center justify-center rounded-full transition-all duration-200 select-none ${
               isListening
-                ? 'bg-gold/20 border-2 border-gold'
+                ? 'bg-white/15 border-2 border-white/40'
                 : 'glass-card border border-glass-border'
             }`}
             whileTap={{ scale: 0.85 }}
@@ -408,7 +431,7 @@ export default function VoiceInput() {
             {/* Pulse ring — listening */}
             {isListening && (
               <motion.div
-                className="absolute inset-0 rounded-full border-2 border-gold/30"
+                className="absolute inset-0 rounded-full border-2 border-white/25"
                 initial={{ scale: 1, opacity: 1 }}
                 animate={{ scale: 1.8, opacity: 0 }}
                 transition={{ duration: 1.2, repeat: Infinity }}
@@ -419,12 +442,12 @@ export default function VoiceInput() {
             {isSpeaking && !isListening && (
               <>
                 <motion.div
-                  className="absolute inset-0 rounded-full bg-gold/10"
+                  className="absolute inset-0 rounded-full bg-white/8"
                   animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.15, 0.4] }}
                   transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
                 />
                 <motion.div
-                  className="absolute inset-0 rounded-full border border-gold/20"
+                  className="absolute inset-0 rounded-full border border-white/15"
                   animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }}
                   transition={{ duration: 2.0, repeat: Infinity, ease: 'easeInOut' }}
                 />
@@ -436,7 +459,7 @@ export default function VoiceInput() {
               height="24"
               viewBox="0 0 24 24"
               fill="none"
-              stroke={isListening ? 'var(--gold)' : isSpeaking ? 'var(--gold)' : '#F5F0EB'}
+              stroke="#F5F0EB"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -458,27 +481,26 @@ export default function VoiceInput() {
   }
 
   // ── Product view: text input + small mic button ────────────────────
-  const isCameraLight = useAppStore((s) => s.isCameraLight);
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="flex items-center gap-3 w-full max-w-sm">
         {/* Text input box */}
         <form onSubmit={handleTextSubmit} className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 rounded-full px-4 py-2.5 backdrop-blur-md border border-gold/50 bg-gold/8 transition-colors duration-300">
+          <div className="flex items-center gap-2 rounded-full px-4 py-2.5 backdrop-blur-md border border-white/20 bg-white/5 transition-colors duration-300">
             <input
               type="text"
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Ask about colour, fit, or details..."
-              className={`flex-1 bg-transparent text-sm outline-none min-w-0 placeholder:text-gold/70 transition-colors duration-300 ${isCameraLight ? 'text-black/80' : 'text-foreground/80'}`}
+              className="flex-1 bg-transparent text-sm outline-none min-w-0 placeholder:text-foreground/40 text-foreground/80"
             />
 
             {/* Send button — only visible when text entered */}
             {textInput.trim() && (
               <button
                 type="submit"
-                className="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-full bg-gold/20 text-gold transition-colors"
+                className="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-foreground/70 transition-colors"
               >
                 <svg
                   width="14"
@@ -506,7 +528,7 @@ export default function VoiceInput() {
             onPointerUp={handleMicUp}
             onPointerLeave={handleMicUp}
             onContextMenu={(e) => e.preventDefault()}
-            className="relative flex-shrink-0 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-md border border-gold/50 bg-gold/15 transition-all duration-200 select-none"
+            className="relative flex-shrink-0 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-md border border-white/20 bg-white/8 transition-all duration-200 select-none"
             whileTap={{ scale: 0.9 }}
           >
             <svg
@@ -514,7 +536,7 @@ export default function VoiceInput() {
               height="18"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="var(--gold)"
+              stroke="rgba(255,255,255,0.6)"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
