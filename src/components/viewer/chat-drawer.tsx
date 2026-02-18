@@ -135,9 +135,12 @@ export default function ChatDrawer() {
   }, []);
 
   useEffect(() => {
-    if (bottomRef.current) {
-      setBottomBarHeight(bottomRef.current.offsetHeight);
-    }
+    const measure = () => {
+      if (bottomRef.current) setBottomBarHeight(bottomRef.current.offsetHeight);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
   }, []);
 
   useEffect(() => {
@@ -247,7 +250,7 @@ export default function ChatDrawer() {
             }}
           >
             {expanded && hasHistory ? (
-              <div className="space-y-6 pt-2 pb-4">
+              <div className="space-y-6 pt-2" style={{ paddingBottom: bottomBarHeight + 16 }}>
                 {chatHistory.map((msg, i) => (
                   <div key={i}>
                     {msg.role === 'assistant' ? (
@@ -271,7 +274,7 @@ export default function ChatDrawer() {
               </p>
             ) : (
               displayMessage && (
-                <p className="text-foreground/70 text-sm leading-relaxed text-center">
+                <p className="text-foreground/70 text-sm leading-relaxed text-center" style={{ paddingBottom: bottomBarHeight + 8 }}>
                   {displayMessage}
                 </p>
               )

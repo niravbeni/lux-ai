@@ -81,7 +81,7 @@ export default function DetailsMode() {
             </div>
           </motion.div>
 
-          {/* Features */}
+          {/* Key Features */}
           <motion.div
             className="space-y-3 w-full"
             initial={{ opacity: 0, y: 10 }}
@@ -89,19 +89,17 @@ export default function DetailsMode() {
             transition={{ delay: 0.6, duration: 0.5 }}
           >
             <h3 className="text-foreground/40 text-xs tracking-[0.2em] uppercase">Key Features</h3>
-            <ul className="space-y-2.5 inline-block text-left">
+            <ul className="space-y-2 text-left pl-5">
               {productData.features.map((feature, i) => (
                 <motion.li
                   key={i}
-                  className="text-foreground/70 text-sm leading-relaxed flex items-start gap-2.5"
+                  className="text-foreground/70 text-sm leading-relaxed list-disc"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.7 + i * 0.06, duration: 0.3 }}
+                  style={{ color: 'rgba(245, 240, 235, 0.4)' }}
                 >
-                  <span className="text-foreground/40 mt-1.5 flex-shrink-0">
-                    <svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3" /></svg>
-                  </span>
-                  {feature}
+                  <span className="text-foreground/70">{feature}</span>
                 </motion.li>
               ))}
             </ul>

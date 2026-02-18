@@ -235,8 +235,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isListening: false,
   setIsListening: (isListening) => set({ isListening }),
 
-  // Assistant message
-  assistantMessage: '',
+  // Assistant message — matches the preloaded chat history
+  assistantMessage: 'Welcome! Here are the Ray-Ban Meta Smart Glasses — iconic design meets smart technology.',
   setAssistantMessage: (assistantMessage) => set({ assistantMessage }),
 
   // TTS
@@ -247,8 +247,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   isConversing: false,
   setIsConversing: (isConversing) => set({ isConversing }),
 
-  // Chat history
-  chatHistory: [],
+  // Chat history — preloaded with the default frame so the panel isn't empty on first pull-up
+  chatHistory: [
+    {
+      role: 'assistant' as const,
+      content: 'Welcome! Here are the Ray-Ban Meta Smart Glasses — iconic design meets smart technology.',
+      frameId: DEFAULT_PRODUCT_ID,
+      colourwayId: 'shiny-black',
+    },
+  ],
   addChatMessage: (role, content, meta) =>
     set((s) => ({ chatHistory: [...s.chatHistory, { role, content, ...meta }] })),
   clearChatHistory: () => set({ chatHistory: [] }),
