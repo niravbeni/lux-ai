@@ -279,12 +279,12 @@ export default function ChatDrawer() {
         </div>
       </motion.div>
 
-      {/* Static bottom bar — shifts up above keyboard when open */}
+      {/* Static bottom bar — transform shifts it above keyboard on iOS */}
       <div
         ref={bottomRef}
-        className="fixed left-0 right-0 z-50 px-6 pt-3 bg-[#0e0e10]"
+        className="fixed left-0 right-0 bottom-0 z-50 px-6 pt-3 bg-[#0e0e10]"
         style={{
-          bottom: keyboard.height,
+          transform: keyboard.open ? `translateY(-${keyboard.height}px)` : 'none',
           paddingBottom: keyboard.open
             ? '0.5rem'
             : 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
