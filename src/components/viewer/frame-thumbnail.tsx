@@ -212,12 +212,24 @@ interface FrameThumbnailProps {
 
 export default function FrameThumbnail({ productId, colourwayId, className }: FrameThumbnailProps) {
   const [staticSrc, setStaticSrc] = useState<string | null>(null);
+  const [inView, setInView] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleCapture = useCallback((url: string) => {
     setStaticSrc(url);
   }, []);
 
-  // Once we have a static image, show it instead of the live Canvas
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setInView(true); },
+      { rootMargin: '200px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   if (staticSrc) {
     return (
       <img
@@ -231,22 +243,26 @@ export default function FrameThumbnail({ productId, colourwayId, className }: Fr
   }
 
   return (
-    <Canvas
-      camera={{ position: [0, 0.1, 2.8], fov: 30 }}
-      gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
-      dpr={[1, 1]}
-      className={className}
-      style={{ background: 'transparent' }}
-      onCreated={({ gl }) => { gl.setClearColor(0x000000, 0); }}
-    >
-      <Suspense fallback={null}>
-        <ambientLight intensity={1.2} />
-        <directionalLight position={[3, 5, 4]} intensity={1.5} color="#ffffff" />
-        <directionalLight position={[-3, 3, 2]} intensity={0.6} color="#e8ddd0" />
-        <Environment preset="studio" background={false} />
-        <ThumbnailModel productId={productId} colourwayId={colourwayId} />
-        <SnapshotCapture onCapture={handleCapture} />
-      </Suspense>
-    </Canvas>
+    <div ref={containerRef} className={className} style={{ background: 'transparent' }}>
+      {inView && (
+        <Canvas
+          camera={{ position: [0, 0.1, 2.8], fov: 30 }}
+          gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
+          dpr={[1, 2]}
+          className="!absolute inset-0 w-full h-full"
+          style={{ background: 'transparent' }}
+          onCreated={({ gl }) => { gl.setClearColor(0x000000, 0); }}
+        >
+          <Suspense fallback={null}>
+            <ambientLight intensity={1.2} />
+            <directionalLight position={[3, 5, 4]} intensity={1.5} color="#ffffff" />
+            <directionalLight position={[-3, 3, 2]} intensity={0.6} color="#e8ddd0" />
+            <Environment preset="studio" background={false} />
+            <ThumbnailModel productId={productId} colourwayId={colourwayId} />
+            <SnapshotCapture onCapture={handleCapture} />
+          </Suspense>
+        </Canvas>
+      )}
+    </div>
   );
 }

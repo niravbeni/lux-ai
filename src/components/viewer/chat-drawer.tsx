@@ -11,6 +11,20 @@ const COLLAPSED_H = 200;
 const EXPANDED_TOP = 160;
 const HANDLE_H = 36;
 
+function useVisualViewportHeight() {
+  const [height, setHeight] = useState(
+    typeof window !== 'undefined' ? window.innerHeight : 800,
+  );
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setHeight(vv.height);
+    vv.addEventListener('resize', update);
+    return () => vv.removeEventListener('resize', update);
+  }, []);
+  return height;
+}
+
 function FrameCard({ message }: { message: ChatMessage }) {
   const setScreen = useAppStore((s) => s.setScreen);
   const setRequestingFrames = useAppStore((s) => s.setRequestingFrames);
@@ -99,10 +113,9 @@ export default function ChatDrawer() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [bottomBarHeight, setBottomBarHeight] = useState(100);
+  const [inputFocused, setInputFocused] = useState(false);
+  const vpHeight = useVisualViewportHeight();
 
-  // The drawer has a FIXED full-expanded height and uses translateY to
-  // slide up/down. This avoids animating `height` which triggers expensive
-  // layout recalculations; translateY is GPU-composited.
   const getMaxDrag = useCallback(() => {
     if (typeof window === 'undefined') return 500;
     return window.innerHeight - EXPANDED_TOP - COLLAPSED_H;
@@ -111,14 +124,11 @@ export default function ChatDrawer() {
   const rawY = useMotionValue(0);
   const springY = useSpring(rawY, { stiffness: 300, damping: 30 });
 
-  // translateY: when rawY=0 (collapsed), shift = maxDrag (pushed down).
-  // when rawY=-maxDrag (expanded), shift = 0 (fully visible).
   const translateY = useTransform(springY, (latest) => {
     const maxDrag = getMaxDrag();
     return maxDrag + Math.max(-maxDrag, Math.min(0, latest));
   });
 
-  // Full expanded height of the drawer (constant)
   const [drawerHeight, setDrawerHeight] = useState(COLLAPSED_H + 500);
   useEffect(() => {
     setDrawerHeight(window.innerHeight - EXPANDED_TOP);
@@ -135,6 +145,27 @@ export default function ChatDrawer() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [chatHistory.length, expanded]);
+
+  // Track input focus so we can adjust layout when keyboard is open
+  useEffect(() => {
+    const onFocus = (e: FocusEvent) => {
+      if ((e.target as HTMLElement)?.tagName === 'INPUT') setInputFocused(true);
+    };
+    const onBlur = (e: FocusEvent) => {
+      if ((e.target as HTMLElement)?.tagName === 'INPUT') setInputFocused(false);
+    };
+    document.addEventListener('focusin', onFocus);
+    document.addEventListener('focusout', onBlur);
+    return () => {
+      document.removeEventListener('focusin', onFocus);
+      document.removeEventListener('focusout', onBlur);
+    };
+  }, []);
+
+  // When keyboard opens on iOS, push the bottom bar up so it stays visible
+  const keyboardOffset = inputFocused
+    ? Math.max(0, window.innerHeight - vpHeight)
+    : 0;
 
   const handlePan = useCallback(
     (_: unknown, info: PanInfo) => {
@@ -206,11 +237,11 @@ export default function ChatDrawer() {
           className="absolute left-0 right-0 overflow-y-auto px-6"
           style={{
             top: HANDLE_H,
-            bottom: bottomBarHeight,
+            bottom: bottomBarHeight + keyboardOffset,
             scrollbarWidth: 'none',
             WebkitOverflowScrolling: 'touch',
             overscrollBehaviorY: 'contain',
-            touchAction: 'pan-y',
+            touchAction: expanded ? 'pan-y' : 'none',
           }}
         >
           {expanded && hasHistory ? (
@@ -245,11 +276,17 @@ export default function ChatDrawer() {
           )}
         </div>
 
-        {/* Bottom pinned — always visible */}
+        {/* Bottom pinned — always visible, adjusts for keyboard */}
         <div
           ref={bottomRef}
-          className="absolute bottom-0 left-0 right-0 z-10 px-6 pt-3 bg-[#0e0e10]"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
+          className="absolute left-0 right-0 z-10 px-6 pt-3 bg-[#0e0e10]"
+          style={{
+            bottom: keyboardOffset,
+            paddingBottom: keyboardOffset > 0
+              ? '0.5rem'
+              : 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
+            transition: 'bottom 100ms ease-out',
+          }}
         >
           <div className="flex justify-between mb-2">
             <button
