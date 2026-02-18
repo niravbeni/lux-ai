@@ -304,14 +304,14 @@ export default function ChatDrawer() {
             >
               {/* Collapsed: show last message only */}
               {!expanded && displayMessage && (
-                <p className="text-foreground/70 text-sm leading-relaxed text-left" style={{ paddingBottom: bottomBarHeight + 8 }}>
+                <p className="text-foreground/70 text-[15px] leading-relaxed text-left" style={{ paddingBottom: bottomBarHeight + 8 }}>
                   {displayMessage}
                 </p>
               )}
 
               {/* Expanded: show empty state */}
               {expanded && !hasHistory && (
-                <p className="text-foreground/30 text-sm text-center pt-8">
+                <p className="text-foreground/30 text-[15px] text-center pt-8">
                   Start a conversation to see your chat history here.
                 </p>
               )}
@@ -329,13 +329,13 @@ export default function ChatDrawer() {
                     <div key={i}>
                       {msg.role === 'assistant' ? (
                         <div>
-                          <p className="text-foreground/70 text-sm leading-relaxed text-left">
+                          <p className="text-foreground/70 text-[15px] leading-relaxed text-left">
                             {msg.content}
                           </p>
                           {msg.frameId && <FrameCard message={msg} />}
                         </div>
                       ) : (
-                        <p className="text-foreground/40 text-xs text-right italic">
+                        <p className="text-foreground/40 text-sm text-right italic">
                           {msg.content}
                         </p>
                       )}
@@ -351,7 +351,7 @@ export default function ChatDrawer() {
       {/* Bottom bar — always rendered (same instance), slides up above keyboard */}
       <div
         ref={bottomRef}
-        className="fixed left-0 right-0 z-[100] px-6 pt-3"
+        className="fixed left-0 right-0 z-[100] px-6 pt-5"
         style={{
           bottom: 0,
           transform: keyboard.open ? `translateY(-${keyboard.height}px)` : 'none',
@@ -366,13 +366,13 @@ export default function ChatDrawer() {
           <div className="flex justify-between mb-4">
             <button
               onClick={() => setScreen('frames-overview')}
-              className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
+              className="text-[11px] tracking-[0.8px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
             >
               See overview of frames
             </button>
             <button
               onClick={() => setScreen('notify-assistant')}
-              className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
+              className="text-[11px] tracking-[0.8px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
             >
               Notify assistant
             </button>

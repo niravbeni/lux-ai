@@ -493,7 +493,7 @@ export default function VoiceInput() {
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Ask about colour, fit, or details..."
-              className="flex-1 bg-transparent text-sm outline-none min-w-0 placeholder:text-foreground/40 text-foreground/80"
+              className="flex-1 bg-transparent text-[15px] outline-none min-w-0 placeholder:text-foreground/40 text-foreground/80"
             />
 
             {/* Send button — always rendered to keep size constant, fades in/out */}
