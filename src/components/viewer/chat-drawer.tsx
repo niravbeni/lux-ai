@@ -13,20 +13,61 @@ const HANDLE_H = 36;
 
 function useKeyboard() {
   const [state, setState] = useState({ open: false, height: 0 });
+  const baseHeight = useRef(
+    typeof window !== 'undefined' ? window.innerHeight : 800,
+  );
+
   useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const update = () => {
-      const kb = Math.round(window.innerHeight - vv.height);
-      setState({ open: kb > 100, height: Math.max(0, kb) });
+    baseHeight.current = window.innerHeight;
+
+    const measure = () => {
+      const vv = window.visualViewport;
+      const h = vv ? vv.height : window.innerHeight;
+      const kb = Math.round(baseHeight.current - h);
+      return Math.max(0, kb);
     };
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
+
+    const onFocus = (e: FocusEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') {
+        // Immediately mark open, measure once keyboard settles
+        setState({ open: true, height: measure() || 260 });
+        setTimeout(() => setState({ open: true, height: measure() || 260 }), 100);
+        setTimeout(() => setState({ open: true, height: measure() || 260 }), 400);
+      }
+    };
+
+    const onBlur = (e: FocusEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') {
+        setTimeout(() => {
+          const active = document.activeElement?.tagName;
+          if (active !== 'INPUT' && active !== 'TEXTAREA') {
+            setState({ open: false, height: 0 });
+          }
+        }, 100);
+      }
+    };
+
+    const onResize = () => {
+      const active = document.activeElement?.tagName;
+      if (active === 'INPUT' || active === 'TEXTAREA') {
+        const kb = measure();
+        if (kb > 100) setState({ open: true, height: kb });
+      }
+    };
+
+    document.addEventListener('focusin', onFocus);
+    document.addEventListener('focusout', onBlur);
+    window.visualViewport?.addEventListener('resize', onResize);
+
     return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
+      document.removeEventListener('focusin', onFocus);
+      document.removeEventListener('focusout', onBlur);
+      window.visualViewport?.removeEventListener('resize', onResize);
     };
   }, []);
+
   return state;
 }
 
