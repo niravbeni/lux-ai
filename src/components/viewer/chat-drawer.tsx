@@ -238,9 +238,21 @@ export default function ChatDrawer() {
   const lastAssistantMsg = [...chatHistory].reverse().find((m) => m.role === 'assistant');
   const displayMessage = lastAssistantMsg?.content ?? assistantMessage ?? '';
 
+  // When keyboard is open, show a clean full-screen overlay with just the input
+  if (keyboard.open) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#0e0e10] flex flex-col">
+        <div className="flex-1" />
+        <div className="px-6 pb-2">
+          <VoiceInput />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      {/* Draggable panel — hidden when keyboard is open */}
+      {/* Draggable panel */}
       <motion.div
         className="absolute left-0 right-0 z-40 rounded-t-[40px]"
         style={{
@@ -248,7 +260,6 @@ export default function ChatDrawer() {
           height: drawerHeight,
           y: translateY,
           willChange: 'transform',
-          display: keyboard.open ? 'none' : 'block',
         }}
       >
         <div className="h-full relative bg-[#0e0e10] rounded-t-[40px] overflow-hidden">
@@ -320,15 +331,12 @@ export default function ChatDrawer() {
         </div>
       </motion.div>
 
-      {/* Static bottom bar — transform shifts it above keyboard on iOS */}
+      {/* Static bottom bar */}
       <div
         ref={bottomRef}
         className="fixed left-0 right-0 bottom-0 z-50 px-6 pt-3 bg-[#0e0e10]"
         style={{
-          transform: keyboard.open ? `translateY(-${keyboard.height}px)` : 'none',
-          paddingBottom: keyboard.open
-            ? '0.5rem'
-            : 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
         }}
       >
         <div className="flex justify-between mb-2">
