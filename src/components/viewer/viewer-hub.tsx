@@ -392,12 +392,17 @@ export default function ViewerHub() {
         </>
       )}
 
-      {/* ─── CONVERSATION MODE (unchanged) ─── */}
+      {/* ─── CONVERSATION MODE ─── */}
       {isConversing && (
         <div className="relative flex-1 w-full min-h-0">
           <div className="absolute inset-0">
             {hasEnteredConversation && (
-              <OrbCanvas scale={1} interactive={isConversing} offsetY={0.3} className="w-full h-full" />
+              <OrbCanvas
+                scale={streamingText ? 0.85 : 1}
+                interactive={isConversing}
+                offsetY={streamingText ? 0.8 : 0.3}
+                className="w-full h-full"
+              />
             )}
 
             <button
