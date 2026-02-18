@@ -238,120 +238,121 @@ export default function ChatDrawer() {
   const lastAssistantMsg = [...chatHistory].reverse().find((m) => m.role === 'assistant');
   const displayMessage = lastAssistantMsg?.content ?? assistantMessage ?? '';
 
-  // When keyboard is open, show a clean full-screen overlay with just the input
-  if (keyboard.open) {
-    return (
-      <div className="fixed inset-0 z-[100] bg-[#0e0e10] flex flex-col">
-        <div className="px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
-          <VoiceInput />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
-      {/* Draggable panel */}
-      <motion.div
-        className="absolute left-0 right-0 z-40 rounded-t-[40px]"
-        style={{
-          bottom: 0,
-          height: drawerHeight,
-          y: translateY,
-          willChange: 'transform',
-        }}
-      >
-        <div className="h-full relative bg-[#0e0e10] rounded-t-[40px] overflow-hidden">
-          {/* Drag handle */}
-          <motion.div
-            className="absolute top-0 left-0 right-0 z-10 flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none bg-[#0e0e10] rounded-t-[40px]"
-            onPan={handlePan}
-            onPanEnd={handlePanEnd}
-            onDoubleClick={toggleDrawer}
-          >
-            <div className="w-[70px] h-[4px] rounded-full bg-foreground/20" />
-          </motion.div>
+      {/* Dark overlay behind everything when keyboard is open */}
+      {keyboard.open && (
+        <div className="fixed inset-0 z-[90] bg-[#0e0e10]" />
+      )}
 
-          {/* Scrollable chat content */}
-          <div
-            ref={scrollRef}
-            className="absolute left-0 right-0 overflow-y-auto px-6"
-            style={{
-              top: HANDLE_H,
-              bottom: 0,
-              scrollbarWidth: 'none',
-              WebkitOverflowScrolling: 'touch',
-              overscrollBehaviorY: 'contain',
-              touchAction: expanded ? 'pan-y' : 'none',
-            }}
-          >
-            {/* Collapsed: show last message only */}
-            {!expanded && displayMessage && (
-              <p className="text-foreground/70 text-sm leading-relaxed text-center" style={{ paddingBottom: bottomBarHeight + 8 }}>
-                {displayMessage}
-              </p>
-            )}
+      {/* Draggable panel — hidden when keyboard is open */}
+      {!keyboard.open && (
+        <motion.div
+          className="absolute left-0 right-0 z-40 rounded-t-[40px]"
+          style={{
+            bottom: 0,
+            height: drawerHeight,
+            y: translateY,
+            willChange: 'transform',
+          }}
+        >
+          <div className="h-full relative bg-[#0e0e10] rounded-t-[40px] overflow-hidden">
+            {/* Drag handle */}
+            <motion.div
+              className="absolute top-0 left-0 right-0 z-10 flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none bg-[#0e0e10] rounded-t-[40px]"
+              onPan={handlePan}
+              onPanEnd={handlePanEnd}
+              onDoubleClick={toggleDrawer}
+            >
+              <div className="w-[70px] h-[4px] rounded-full bg-foreground/20" />
+            </motion.div>
 
-            {/* Expanded: show empty state */}
-            {expanded && !hasHistory && (
-              <p className="text-foreground/30 text-sm text-center pt-8">
-                Start a conversation to see your chat history here.
-              </p>
-            )}
+            {/* Scrollable chat content */}
+            <div
+              ref={scrollRef}
+              className="absolute left-0 right-0 overflow-y-auto px-6"
+              style={{
+                top: HANDLE_H,
+                bottom: 0,
+                scrollbarWidth: 'none',
+                WebkitOverflowScrolling: 'touch',
+                overscrollBehaviorY: 'contain',
+                touchAction: expanded ? 'pan-y' : 'none',
+              }}
+            >
+              {/* Collapsed: show last message only */}
+              {!expanded && displayMessage && (
+                <p className="text-foreground/70 text-sm leading-relaxed text-center" style={{ paddingBottom: bottomBarHeight + 8 }}>
+                  {displayMessage}
+                </p>
+              )}
 
-            {/* Always rendered (so thumbnails pre-render), visibility toggled */}
-            {hasHistory && (
-              <div
-                className="space-y-6 pt-2"
-                style={{
-                  paddingBottom: bottomBarHeight + 16,
-                  display: expanded ? 'block' : 'none',
-                }}
-              >
-                {chatHistory.map((msg, i) => (
-                  <div key={i}>
-                    {msg.role === 'assistant' ? (
-                      <div>
-                        <p className="text-foreground/70 text-sm leading-relaxed text-center">
+              {/* Expanded: show empty state */}
+              {expanded && !hasHistory && (
+                <p className="text-foreground/30 text-sm text-center pt-8">
+                  Start a conversation to see your chat history here.
+                </p>
+              )}
+
+              {/* Always rendered (so thumbnails pre-render), visibility toggled */}
+              {hasHistory && (
+                <div
+                  className="space-y-6 pt-2"
+                  style={{
+                    paddingBottom: bottomBarHeight + 16,
+                    display: expanded ? 'block' : 'none',
+                  }}
+                >
+                  {chatHistory.map((msg, i) => (
+                    <div key={i}>
+                      {msg.role === 'assistant' ? (
+                        <div>
+                          <p className="text-foreground/70 text-sm leading-relaxed text-center">
+                            {msg.content}
+                          </p>
+                          {msg.frameId && <FrameCard message={msg} />}
+                        </div>
+                      ) : (
+                        <p className="text-foreground/40 text-xs text-right italic">
                           {msg.content}
                         </p>
-                        {msg.frameId && <FrameCard message={msg} />}
-                      </div>
-                    ) : (
-                      <p className="text-foreground/40 text-xs text-right italic">
-                        {msg.content}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
-      {/* Static bottom bar */}
+      {/* Bottom bar — always rendered (same instance), positioned based on keyboard */}
       <div
         ref={bottomRef}
-        className="fixed left-0 right-0 bottom-0 z-50 px-6 pt-3 bg-[#0e0e10]"
+        className="fixed left-0 right-0 z-[100] px-6 pt-3 bg-[#0e0e10]"
         style={{
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
+          bottom: keyboard.open ? keyboard.height : 0,
+          paddingBottom: keyboard.open
+            ? '0.5rem'
+            : 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
         }}
       >
-        <div className="flex justify-between mb-2">
-          <button
-            onClick={() => setScreen('frames-overview')}
-            className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
-          >
-            See overview of frames
-          </button>
-          <button
-            onClick={() => setScreen('notify-assistant')}
-            className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
-          >
-            Notify assistant
-          </button>
-        </div>
+        {!keyboard.open && (
+          <div className="flex justify-between mb-2">
+            <button
+              onClick={() => setScreen('frames-overview')}
+              className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
+            >
+              See overview of frames
+            </button>
+            <button
+              onClick={() => setScreen('notify-assistant')}
+              className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
+            >
+              Notify assistant
+            </button>
+          </div>
+        )}
 
         <VoiceInput />
       </div>
