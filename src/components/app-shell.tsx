@@ -70,6 +70,19 @@ export default function AppShell() {
     }
   }, [activeProductId]);
 
+  // Prevent iOS Safari viewport shift when the virtual keyboard opens
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const reset = () => { window.scrollTo(0, 0); };
+    vv.addEventListener('resize', reset);
+    vv.addEventListener('scroll', reset);
+    return () => {
+      vv.removeEventListener('resize', reset);
+      vv.removeEventListener('scroll', reset);
+    };
+  }, []);
+
   // Camera bg stays mounted for the entire viewer-hub lifetime.
   // The orb overlay darkens the scene when conversing (handled inside
   // ViewerHub), so no background swap is needed — the camera keeps running.

@@ -183,10 +183,10 @@ export default function ChatDrawer() {
         willChange: 'height',
       }}
     >
-      <div className="h-full relative bg-[#111618] rounded-t-[40px] shadow-[0px_-4px_20px_0px_rgba(255,255,255,0.1)] overflow-hidden">
+      <div className="h-full relative bg-[#0e0e10] rounded-t-[40px] shadow-[0px_-4px_20px_0px_rgba(255,255,255,0.1)] overflow-hidden">
         {/* Drag handle — pinned top */}
         <motion.div
-          className="absolute top-0 left-0 right-0 z-10 flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none bg-[#111618] rounded-t-[40px]"
+          className="absolute top-0 left-0 right-0 z-10 flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none bg-[#0e0e10] rounded-t-[40px]"
           onPan={handlePan}
           onPanEnd={handlePanEnd}
           onDoubleClick={toggleDrawer}
@@ -244,7 +244,7 @@ export default function ChatDrawer() {
         {/* Bottom pinned — always visible */}
         <div
           ref={bottomRef}
-          className="absolute bottom-0 left-0 right-0 z-10 px-6 pt-3 bg-[#111618]"
+          className="absolute bottom-0 left-0 right-0 z-10 px-6 pt-3 bg-[#0e0e10]"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
         >
           <div className="flex justify-start mb-2">

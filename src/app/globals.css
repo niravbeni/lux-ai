@@ -52,10 +52,12 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  /* Use dvh for content — respects iOS Safari toolbar */
+  /* Fixed position prevents iOS Safari from scrolling the page when the
+     keyboard opens — the viewport shrinks but the body stays put. */
+  position: fixed;
+  inset: 0;
   width: 100%;
-  height: 100dvh;
-  height: 100svh; /* small viewport = always visible area */
+  height: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
