@@ -304,7 +304,7 @@ export default function ChatDrawer() {
             >
               {/* Collapsed: show last message only */}
               {!expanded && displayMessage && (
-                <p className="text-foreground/70 text-sm leading-relaxed text-center" style={{ paddingBottom: bottomBarHeight + 8 }}>
+                <p className="text-foreground/70 text-sm leading-relaxed text-left" style={{ paddingBottom: bottomBarHeight + 8 }}>
                   {displayMessage}
                 </p>
               )}
@@ -329,7 +329,7 @@ export default function ChatDrawer() {
                     <div key={i}>
                       {msg.role === 'assistant' ? (
                         <div>
-                          <p className="text-foreground/70 text-sm leading-relaxed text-center">
+                          <p className="text-foreground/70 text-sm leading-relaxed text-left">
                             {msg.content}
                           </p>
                           {msg.frameId && <FrameCard message={msg} />}
@@ -363,7 +363,7 @@ export default function ChatDrawer() {
         }}
       >
         {!keyboard.open && (
-          <div className="flex justify-between mb-2">
+          <div className="flex justify-between mb-4">
             <button
               onClick={() => setScreen('frames-overview')}
               className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
