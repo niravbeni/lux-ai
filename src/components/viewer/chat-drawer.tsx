@@ -11,52 +11,23 @@ const COLLAPSED_H = 200;
 const EXPANDED_TOP = 160;
 const HANDLE_H = 36;
 
-function useKeyboardOpen() {
-  const [open, setOpen] = useState(false);
+function useKeyboard() {
+  const [state, setState] = useState({ open: false, height: 0 });
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const check = () => {
-      const kb = window.innerHeight - vv.height;
-      setOpen(kb > 100);
+    const update = () => {
+      const kb = Math.round(window.innerHeight - vv.height);
+      setState({ open: kb > 100, height: Math.max(0, kb) });
     };
-    vv.addEventListener('resize', check);
-    return () => vv.removeEventListener('resize', check);
-  }, []);
-  return open;
-}
-
-function useBottomBarPosition(ref: React.RefObject<HTMLDivElement | null>, active: boolean) {
-  useEffect(() => {
-    if (!active) {
-      if (ref.current) {
-        ref.current.style.position = 'fixed';
-        ref.current.style.bottom = '0px';
-        ref.current.style.top = 'auto';
-      }
-      return;
-    }
-    const vv = window.visualViewport;
-    if (!vv || !ref.current) return;
-
-    const reposition = () => {
-      if (!ref.current) return;
-      const el = ref.current;
-      const barH = el.offsetHeight;
-      const top = vv.offsetTop + vv.height - barH;
-      el.style.position = 'fixed';
-      el.style.top = `${top}px`;
-      el.style.bottom = 'auto';
-    };
-
-    reposition();
-    vv.addEventListener('resize', reposition);
-    vv.addEventListener('scroll', reposition);
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
     return () => {
-      vv.removeEventListener('resize', reposition);
-      vv.removeEventListener('scroll', reposition);
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
     };
-  }, [ref, active]);
+  }, []);
+  return state;
 }
 
 function FrameCard({ message }: { message: ChatMessage }) {
@@ -147,8 +118,7 @@ export default function ChatDrawer() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [bottomBarHeight, setBottomBarHeight] = useState(100);
-  const keyboardOpen = useKeyboardOpen();
-  useBottomBarPosition(bottomRef, keyboardOpen);
+  const keyboard = useKeyboard();
 
   const getMaxDrag = useCallback(() => {
     if (typeof window === 'undefined') return 500;
@@ -237,7 +207,7 @@ export default function ChatDrawer() {
           height: drawerHeight,
           y: translateY,
           willChange: 'transform',
-          display: keyboardOpen ? 'none' : 'block',
+          display: keyboard.open ? 'none' : 'block',
         }}
       >
         <div className="h-full relative bg-[#0e0e10] rounded-t-[40px] overflow-hidden">
@@ -309,13 +279,13 @@ export default function ChatDrawer() {
         </div>
       </motion.div>
 
-      {/* Static bottom bar — positioned via visualViewport when keyboard is open */}
+      {/* Static bottom bar — shifts up above keyboard when open */}
       <div
         ref={bottomRef}
         className="fixed left-0 right-0 z-50 px-6 pt-3 bg-[#0e0e10]"
         style={{
-          bottom: 0,
-          paddingBottom: keyboardOpen
+          bottom: keyboard.height,
+          paddingBottom: keyboard.open
             ? '0.5rem'
             : 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
         }}
