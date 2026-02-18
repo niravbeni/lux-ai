@@ -241,9 +241,9 @@ export default function ChatDrawer() {
 
   return (
     <>
-      {/* Dark overlay behind everything when keyboard is open */}
+      {/* Overlay when keyboard is open — matches the blurry product page feel */}
       {keyboard.open && (
-        <div className="fixed inset-0 z-[90] bg-[#0e0e10]" />
+        <div className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-xl" />
       )}
 
       {/* Draggable panel — hidden when keyboard is open */}
@@ -327,12 +327,15 @@ export default function ChatDrawer() {
         </motion.div>
       )}
 
-      {/* Bottom bar — always rendered (same instance), positioned based on keyboard */}
+      {/* Bottom bar — always rendered (same instance), slides up above keyboard */}
       <div
         ref={bottomRef}
-        className="fixed left-0 right-0 z-[100] px-6 pt-3 bg-[#0e0e10]"
+        className="fixed left-0 right-0 z-[100] px-6 pt-3"
         style={{
-          bottom: keyboard.open ? keyboard.height : 0,
+          bottom: 0,
+          transform: keyboard.open ? `translateY(-${keyboard.height}px)` : 'none',
+          transition: 'transform 250ms ease-out',
+          backgroundColor: keyboard.open ? 'transparent' : '#0e0e10',
           paddingBottom: keyboard.open
             ? '0.5rem'
             : 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
