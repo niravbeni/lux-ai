@@ -242,8 +242,7 @@ export default function ChatDrawer() {
   if (keyboard.open) {
     return (
       <div className="fixed inset-0 z-[100] bg-[#0e0e10] flex flex-col">
-        <div className="flex-1" />
-        <div className="px-6 pb-2">
+        <div className="px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
           <VoiceInput />
         </div>
       </div>
