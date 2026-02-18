@@ -189,7 +189,7 @@ export default function ChatDrawer() {
         willChange: 'transform',
       }}
     >
-      <div className="h-full relative bg-[#0e0e10] rounded-t-[40px] shadow-[0px_-4px_20px_0px_rgba(255,255,255,0.1)] overflow-hidden">
+      <div className="h-full relative bg-[#0e0e10] rounded-t-[40px] overflow-hidden">
         {/* Drag handle — pinned top */}
         <motion.div
           className="absolute top-0 left-0 right-0 z-10 flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none bg-[#0e0e10] rounded-t-[40px]"
