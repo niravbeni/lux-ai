@@ -57,7 +57,7 @@ export default function NotifyAssistant() {
         className="flex-1 overflow-y-auto flex flex-col items-center px-8"
         style={{
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 3rem)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 6rem)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 10rem)',
           scrollbarWidth: 'none',
         }}
       >

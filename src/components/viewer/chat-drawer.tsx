@@ -296,8 +296,29 @@ export default function ChatDrawer() {
               touchAction: expanded ? 'pan-y' : 'none',
             }}
           >
-            {expanded && hasHistory ? (
-              <div className="space-y-6 pt-2" style={{ paddingBottom: bottomBarHeight + 16 }}>
+            {/* Collapsed: show last message only */}
+            {!expanded && displayMessage && (
+              <p className="text-foreground/70 text-sm leading-relaxed text-center" style={{ paddingBottom: bottomBarHeight + 8 }}>
+                {displayMessage}
+              </p>
+            )}
+
+            {/* Expanded: show empty state */}
+            {expanded && !hasHistory && (
+              <p className="text-foreground/30 text-sm text-center pt-8">
+                Start a conversation to see your chat history here.
+              </p>
+            )}
+
+            {/* Always rendered (so thumbnails pre-render), visibility toggled */}
+            {hasHistory && (
+              <div
+                className="space-y-6 pt-2"
+                style={{
+                  paddingBottom: bottomBarHeight + 16,
+                  display: expanded ? 'block' : 'none',
+                }}
+              >
                 {chatHistory.map((msg, i) => (
                   <div key={i}>
                     {msg.role === 'assistant' ? (
@@ -315,16 +336,6 @@ export default function ChatDrawer() {
                   </div>
                 ))}
               </div>
-            ) : expanded && !hasHistory ? (
-              <p className="text-foreground/30 text-sm text-center pt-8">
-                Start a conversation to see your chat history here.
-              </p>
-            ) : (
-              displayMessage && (
-                <p className="text-foreground/70 text-sm leading-relaxed text-center" style={{ paddingBottom: bottomBarHeight + 8 }}>
-                  {displayMessage}
-                </p>
-              )
             )}
           </div>
         </div>

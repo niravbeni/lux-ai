@@ -412,11 +412,13 @@ export default function ViewerHub() {
             </button>
 
             <div
-              className="absolute inset-x-0 z-20 flex flex-col items-center pointer-events-none"
-              style={{ top: '15%', bottom: 'max(8.5rem, calc(env(safe-area-inset-bottom, 0px) + 8rem))' }}
+              className="absolute inset-x-0 z-20 flex flex-col justify-end pointer-events-none"
+              style={{ top: '52%', bottom: 'max(8.5rem, calc(env(safe-area-inset-bottom, 0px) + 8rem))' }}
             >
-              <div className="flex-1" />
-              <div className="px-8 pb-2 w-full max-w-sm space-y-3">
+              <div
+                className="px-8 pb-2 w-full max-w-sm mx-auto space-y-3 overflow-y-auto"
+                style={{ maxHeight: '100%', scrollbarWidth: 'none' }}
+              >
                 <AnimatePresence>
                   {(transcript || isListening) && !streamingText && (
                     <motion.div
