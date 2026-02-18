@@ -11,7 +11,8 @@ export type AppScreen =
   | 'details-mode'
   | 'save-modal'
   | 'frames-overview'
-  | 'request-frame';
+  | 'request-frame'
+  | 'notify-assistant';
 
 export type OrbState = 'idle' | 'listening' | 'processing' | 'recognition' | 'speaking';
 

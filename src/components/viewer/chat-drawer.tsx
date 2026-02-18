@@ -251,12 +251,18 @@ export default function ChatDrawer() {
           className="absolute bottom-0 left-0 right-0 z-10 px-6 pt-3 bg-[#0e0e10]"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
         >
-          <div className="flex justify-start mb-2">
+          <div className="flex justify-between mb-2">
             <button
               onClick={() => setScreen('frames-overview')}
               className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
             >
               See overview of frames
+            </button>
+            <button
+              onClick={() => setScreen('notify-assistant')}
+              className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
+            >
+              Notify assistant
             </button>
           </div>
 

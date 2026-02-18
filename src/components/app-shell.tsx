@@ -47,6 +47,9 @@ const FramesOverview = dynamic(() => import('@/components/screens/frames-overvie
 const RequestFrame = dynamic(() => import('@/components/screens/request-frame'), {
   ssr: false,
 });
+const NotifyAssistant = dynamic(() => import('@/components/screens/notify-assistant'), {
+  ssr: false,
+});
 
 export default function AppShell() {
   const screen = useAppStore((s) => s.screen);
@@ -130,6 +133,7 @@ export default function AppShell() {
           {screen === 'save-modal' && <SaveModal key="save-modal" />}
           {screen === 'frames-overview' && <FramesOverview key="frames-overview" />}
           {screen === 'request-frame' && <RequestFrame key="request-frame" />}
+          {screen === 'notify-assistant' && <NotifyAssistant key="notify-assistant" />}
         </AnimatePresence>
       </div>
     </>
