@@ -212,100 +212,103 @@ export default function ChatDrawer() {
   const displayMessage = lastAssistantMsg?.content ?? assistantMessage ?? '';
 
   return (
-    <motion.div
-      className="absolute bottom-0 left-0 right-0 z-40 rounded-t-[40px]"
-      style={{
-        height: drawerHeight,
-        y: translateY,
-        willChange: 'transform',
-      }}
-    >
-      <div className="h-full relative bg-[#0e0e10] rounded-t-[40px] overflow-hidden">
-        {/* Drag handle — pinned top */}
-        <motion.div
-          className="absolute top-0 left-0 right-0 z-10 flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none bg-[#0e0e10] rounded-t-[40px]"
-          onPan={handlePan}
-          onPanEnd={handlePanEnd}
-          onDoubleClick={toggleDrawer}
-        >
-          <div className="w-[70px] h-[4px] rounded-full bg-foreground/20" />
-        </motion.div>
+    <>
+      {/* Draggable panel — slides up/down, contains handle + chat content */}
+      <motion.div
+        className="absolute bottom-0 left-0 right-0 z-40 rounded-t-[40px]"
+        style={{
+          height: drawerHeight,
+          y: translateY,
+          willChange: 'transform',
+        }}
+      >
+        <div className="h-full relative bg-[#0e0e10] rounded-t-[40px] overflow-hidden">
+          {/* Drag handle */}
+          <motion.div
+            className="absolute top-0 left-0 right-0 z-10 flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none bg-[#0e0e10] rounded-t-[40px]"
+            onPan={handlePan}
+            onPanEnd={handlePanEnd}
+            onDoubleClick={toggleDrawer}
+          >
+            <div className="w-[70px] h-[4px] rounded-full bg-foreground/20" />
+          </motion.div>
 
-        {/* Scrollable chat content — same content collapsed and expanded */}
-        <div
-          ref={scrollRef}
-          className="absolute left-0 right-0 overflow-y-auto px-6"
-          style={{
-            top: HANDLE_H,
-            bottom: bottomBarHeight + keyboardOffset,
-            scrollbarWidth: 'none',
-            WebkitOverflowScrolling: 'touch',
-            overscrollBehaviorY: 'contain',
-            touchAction: expanded ? 'pan-y' : 'none',
-          }}
-        >
-          {expanded && hasHistory ? (
-            <div className="space-y-6 pt-2 pb-4">
-              {chatHistory.map((msg, i) => (
-                <div key={i}>
-                  {msg.role === 'assistant' ? (
-                    <div>
-                      <p className="text-foreground/70 text-sm leading-relaxed text-center">
+          {/* Scrollable chat content */}
+          <div
+            ref={scrollRef}
+            className="absolute left-0 right-0 overflow-y-auto px-6"
+            style={{
+              top: HANDLE_H,
+              bottom: 0,
+              scrollbarWidth: 'none',
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehaviorY: 'contain',
+              touchAction: expanded ? 'pan-y' : 'none',
+            }}
+          >
+            {expanded && hasHistory ? (
+              <div className="space-y-6 pt-2 pb-4">
+                {chatHistory.map((msg, i) => (
+                  <div key={i}>
+                    {msg.role === 'assistant' ? (
+                      <div>
+                        <p className="text-foreground/70 text-sm leading-relaxed text-center">
+                          {msg.content}
+                        </p>
+                        {msg.frameId && <FrameCard message={msg} />}
+                      </div>
+                    ) : (
+                      <p className="text-foreground/40 text-xs text-right italic">
                         {msg.content}
                       </p>
-                      {msg.frameId && <FrameCard message={msg} />}
-                    </div>
-                  ) : (
-                    <p className="text-foreground/40 text-xs text-right italic">
-                      {msg.content}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : expanded && !hasHistory ? (
-            <p className="text-foreground/30 text-sm text-center pt-8">
-              Start a conversation to see your chat history here.
-            </p>
-          ) : (
-            displayMessage && (
-              <p className="text-foreground/70 text-sm leading-relaxed text-center">
-                {displayMessage}
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : expanded && !hasHistory ? (
+              <p className="text-foreground/30 text-sm text-center pt-8">
+                Start a conversation to see your chat history here.
               </p>
-            )
-          )}
-        </div>
-
-        {/* Bottom pinned — always visible, adjusts for keyboard */}
-        <div
-          ref={bottomRef}
-          className="absolute left-0 right-0 z-10 px-6 pt-3 bg-[#0e0e10]"
-          style={{
-            bottom: keyboardOffset,
-            paddingBottom: keyboardOffset > 0
-              ? '0.5rem'
-              : 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
-            transition: 'bottom 100ms ease-out',
-          }}
-        >
-          <div className="flex justify-between mb-2">
-            <button
-              onClick={() => setScreen('frames-overview')}
-              className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
-            >
-              See overview of frames
-            </button>
-            <button
-              onClick={() => setScreen('notify-assistant')}
-              className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
-            >
-              Notify assistant
-            </button>
+            ) : (
+              displayMessage && (
+                <p className="text-foreground/70 text-sm leading-relaxed text-center">
+                  {displayMessage}
+                </p>
+              )
+            )}
           </div>
-
-          <VoiceInput />
         </div>
+      </motion.div>
+
+      {/* Static bottom bar — always fixed at the screen bottom, never moves */}
+      <div
+        ref={bottomRef}
+        className="absolute left-0 right-0 z-50 px-6 pt-3 bg-[#0e0e10]"
+        style={{
+          bottom: keyboardOffset,
+          paddingBottom: keyboardOffset > 0
+            ? '0.5rem'
+            : 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
+          transition: 'bottom 100ms ease-out',
+        }}
+      >
+        <div className="flex justify-between mb-2">
+          <button
+            onClick={() => setScreen('frames-overview')}
+            className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
+          >
+            See overview of frames
+          </button>
+          <button
+            onClick={() => setScreen('notify-assistant')}
+            className="text-[9px] tracking-[0.9px] uppercase text-foreground/60 hover:text-foreground/80 transition-colors"
+          >
+            Notify assistant
+          </button>
+        </div>
+
+        <VoiceInput />
       </div>
-    </motion.div>
+    </>
   );
 }
