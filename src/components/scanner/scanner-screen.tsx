@@ -170,7 +170,7 @@ export default function ScannerScreen() {
             Scan to discover
           </p>
           <p className={`text-base leading-relaxed max-w-[280px] transition-colors duration-500 ${isLight ? 'text-black/70' : 'text-foreground/80'}`}>
-            Point your camera at a QR code on the frame
+            Point your camera at a QR code or frame.
           </p>
         </div>
 

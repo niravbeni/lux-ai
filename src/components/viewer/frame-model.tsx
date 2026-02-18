@@ -141,14 +141,17 @@ export default function FrameModel({ modelPath }: FrameModelProps) {
     const cw = product.colourways.find((c) => c.id === activeColourway) ?? getColourway(activeColourway);
     if (!cw) return;
 
-    const isDefault = cw.id === product.colourways[0]?.id;
+    const defaultCw = product.colourways[0];
+    const isDefault = cw.id === defaultCw?.id;
     const isBuiltIn = product.colourways.some((c) => c.id === cw.id);
 
     // "Tint only" mode keeps the baked-in texture and only tweaks roughness /
-    // metalness. This is ONLY for built-in dark variants (matte-black, etc.)
-    // where the texture already provides the correct darkness level.
-    // Custom / dynamically-created colours always get full colour replacement.
-    const tintOnly = !isDefault && isBuiltIn && isDarkColour(cw.color);
+    // metalness. This ONLY works when the default colourway's texture is already
+    // dark (e.g. Ray-Ban Meta's Shiny Black default) AND the target is also dark.
+    // If the default is light (e.g. Aviator's Gold), dark variants still need
+    // full colour replacement to actually change the visible colour.
+    const defaultIsDark = defaultCw ? isDarkColour(defaultCw.color) : false;
+    const tintOnly = !isDefault && isBuiltIn && isDarkColour(cw.color) && defaultIsDark;
 
     clonedScene.traverse((child) => {
       if (!(child as THREE.Mesh).isMesh) return;
@@ -185,12 +188,10 @@ export default function FrameModel({ modelPath }: FrameModelProps) {
           stdMat.map = null;
           stdMat.metalnessMap = null;
           stdMat.roughnessMap = null;
-          // Keep normalMap for surface grooves / detail
+          stdMat.normalMap = orig.normalMap;
           stdMat.color.set(cw.color);
           stdMat.metalness = cw.metalness;
           stdMat.roughness = cw.roughness;
-          // Without the dark texture, the bright studio lighting washes
-          // out the colour.  Pull envMapIntensity way down to compensate.
           stdMat.envMapIntensity = 0.15;
         }
         stdMat.needsUpdate = true;

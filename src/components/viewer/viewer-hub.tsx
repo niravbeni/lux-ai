@@ -577,9 +577,9 @@ export default function ViewerHub() {
             </motion.div>
           )}
 
-          <VoiceInput />
-
           <SuggestionPills />
+
+          <VoiceInput />
 
           <div className="flex items-center justify-between pt-1">
             <button
